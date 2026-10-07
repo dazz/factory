@@ -10,7 +10,7 @@ jobs:
       - name: vector validate
         run: |
           docker run --rm \
-            -v "$PWD/observability/vector.yaml:/etc/vector/vector.yaml:ro" \
+            -v "$PWD/infra/vector/vector.yaml:/etc/vector/vector.yaml:ro" \
             -e VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true \
             -e BETTERSTACK_INGEST_HOST=placeholder.invalid \
             -e BETTERSTACK_SOURCE_TOKEN=placeholder \

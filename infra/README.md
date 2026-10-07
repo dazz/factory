@@ -1,25 +1,30 @@
-# observability
+# infra
+
+The box-wide services of the factory, one compose project (`compose/`). Today that is Vector.
+
+## Vector → Better Stack
 
 One Vector container for the whole box. It tails each runner's event file (schema v1, one JSON object per line)
 and ships every event to one Better Stack source. Nothing else on the box is mounted.
 
-## Start, stop, logs
+### Start, stop, logs
 
-Run from this directory:
+Run from `infra/compose/`:
 
 ```sh
-mkdir -p ~/.local/state/factory/events      # once, before the first `up` (or start the runner once)
+mkdir -p ~/.local/state/factory/events ~/.local/state/factory/vector   # once, before the first `up`
 cp .env.example .env                         # once, then fill it in (see below)
 docker compose up -d                         # start; restarts by itself unless stopped
 docker compose logs -f vector                # watch
-docker compose down                          # stop; the named volume keeps checkpoints and the disk buffer
+docker compose down                          # stop; ~/.local/state/factory/vector keeps checkpoints and the disk buffer
 ```
 
-**Start order.** The events directory must exist before the first `docker compose up`. Otherwise Docker
-creates it, and with a rootful daemon it belongs to root and the runner cannot write its event file.
-(This box runs rootless Docker, where it would belong to you, but keep the rule: the README is for every box.)
+**Start order.** Both directories must exist before the first `docker compose up` (the events directory can
+also come from starting the runner once). Otherwise Docker creates them, and with a rootful daemon they belong to
+root and the runner cannot write its event file. (This box runs rootless Docker, where they would belong to you,
+but keep the rule: the README is for every box.)
 
-## `.env`
+### `.env`
 
 Better Stack → Telemetry → Sources → Connect source (platform: HTTP / Vector). Copy the two values into `.env`:
 
@@ -31,13 +36,13 @@ Better Stack → Telemetry → Sources → Connect source (platform: HTTP / Vect
 `.env` is git-ignored. Never commit it.
 
 `vector.yaml` reads both with `${VAR}`. Since Vector 0.57 that interpolation is off by default, so
-`docker-compose.yml` turns it on with `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true`. Without it the
+`compose/docker-compose.yml` turns it on with `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true`. Without it the
 config would still validate, but Vector would send to the literal string `${BETTERSTACK_INGEST_HOST}`.
 
 **A wrong token fails silently.** Vector retries only on 408, 429 and 5xx. A 401/403 (wrong or revoked token)
 drops the events. Only the absence alert below catches that, which is why it says "no events", not "no pass".
 
-## Free tier (check once in the account, write the numbers here)
+### Free tier (check once in the account, write the numbers here)
 
 | What | Value |
 |---|---|
@@ -47,7 +52,7 @@ drops the events. Only the absence alert below catches that, which is why it say
 
 The error alert's push depends on the last row. If push is not included, the alerts fall back to email.
 
-## Alerts (create by hand)
+### Alerts (create by hand)
 
 Better Stack → Telemetry → Alerts → Create alert, source: this one.
 
@@ -61,7 +66,7 @@ Better Stack → Telemetry → Alerts → Create alert, source: this one.
 **After `make automations-stop` the "no events" push arrives 20 minutes later, on purpose.** Better Stack cannot
 tell a wanted stop from a crash, and "the factory is off" is worth a push. It is not a false alarm.
 
-## One-line test
+### One-line test
 
 Append an error event to the event file and watch your phone (push within 2 minutes):
 
@@ -72,15 +77,15 @@ echo '{"schema":1,"time":"'"$(date +%Y-%m-%dT%H:%M:%S.%3N%:z)"'","kind":"automat
 A non-JSON line (`echo 'not json' >> …/dazzhub.jsonl`) arrives as `outcome: undecodable`, `level: error`, the raw
 line in `detail`, and pushes the same way.
 
-## Live tail
+### Live tail
 
 Save a default view that hides `outcome = "heartbeat"` (the runner writes one every 5 minutes). Columns:
 `dt repository automation issue outcome detail`.
 
-## A second repository
+### A second repository
 
 The other runner's `project.paths.events` must live under `~/.local/state/factory/events/` (the only mounted
-directory). Then, in `vector.yaml`, one source block and one entry in `inputs`:
+directory). Then, in `vector/vector.yaml`, one source block and one entry in `inputs`:
 
 ```yaml
 sources:
@@ -96,9 +101,9 @@ transforms:
 `docker compose restart vector`, then add that repository's own "no events" alert (alert 2). The error alert
 already covers it.
 
-## Vector version
+### Vector version
 
-The image tag is pinned in two places: `docker-compose.yml` and `.github/workflows/validate.yml`. Move both
+The image tag is pinned in two places: `compose/docker-compose.yml` and `.github/workflows/validate.yml`. Move both
 together, and read the Vector upgrade guides in between. CI runs
 `vector validate --no-environment` on every push with placeholder values for the two variables; it finds config
 mistakes, not a wrong token.

@@ -1,4 +1,4 @@
-name: factory-observability
+name: factory-infra
 
 services:
   vector:
@@ -8,10 +8,7 @@ services:
     environment:
       VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"  # since 0.57 Vector leaves ${VAR} in vector.yaml literal without it
     volumes:
-      - ./vector.yaml:/etc/vector/vector.yaml:ro
+      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
       - ${HOME}/.local/state/factory/events:/events:ro  # the directory of project.paths.events, never paths.state; create it first (README)
-      - vector-data:/var/lib/vector                     # checkpoints + disk buffer
+      - ${HOME}/.local/state/factory/vector:/var/lib/vector  # checkpoints + disk buffer; a host path, not a named volume
     mem_limit: 128m
-
-volumes:
-  vector-data:
