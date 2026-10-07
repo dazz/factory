@@ -1,0 +1,17 @@
+name: factory-observability
+
+services:
+  vector:
+    image: timberio/vector:0.59.0-alpine                # pinned; the CI workflow uses the same tag, move both together
+    restart: unless-stopped
+    env_file: .env                                      # BETTERSTACK_SOURCE_TOKEN, BETTERSTACK_INGEST_HOST, never in the repo
+    environment:
+      VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"  # since 0.57 Vector leaves ${VAR} in vector.yaml literal without it
+    volumes:
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+      - ${HOME}/.local/state/factory/events:/events:ro  # the directory of project.paths.events, never paths.state; create it first (README)
+      - vector-data:/var/lib/vector                     # checkpoints + disk buffer
+    mem_limit: 128m
+
+volumes:
+  vector-data:

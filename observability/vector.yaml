@@ -1,0 +1,31 @@
+sources:
+  dazzhub:                                             # one source per repository, explicit path, no glob
+    type: file
+    include: ["/events/dazz/dazzhub.jsonl"]
+    read_from: end
+
+transforms:
+  decode:                                              # decode only, no format knowledge; the one Better-Stack-specific place
+    type: remap
+    inputs: [dazzhub]                                  # second repository: append its source here
+    source: |
+      parsed, err = parse_json(.message)
+      if err == null && is_object(parsed) {
+        . = merge(., object!(parsed))
+        del(.message)
+      } else {
+        # a broken line must not pass silently: the error alert catches it; not part of schema v1, born in this pipeline
+        .outcome = "undecodable"; .level = "error"; .detail = slice!(.message, 0, 500)
+      }
+      del(.file); del(.source_type); del(.host); del(.timestamp)   # Vector's own fields, incl. its second time field
+      .dt = .time                                      # Better Stack reads the event time from dt; on undecodable lines .time is null → arrival time
+
+sinks:
+  better_stack:
+    type: http
+    inputs: [decode]
+    uri: "https://${BETTERSTACK_INGEST_HOST}"
+    method: post
+    encoding: { codec: json }
+    auth: { strategy: bearer, token: "${BETTERSTACK_SOURCE_TOKEN}" }
+    buffer: { type: disk, max_size: 268435488 }        # the minimum; survives restarts. No retry_attempts: the default retries practically forever
