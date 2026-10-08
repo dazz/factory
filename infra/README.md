@@ -36,8 +36,8 @@ Better Stack → Telemetry → Sources → Connect source (platform: HTTP / Vect
 `.env` is git-ignored. Never commit it.
 
 `vector.yaml` reads both with `${VAR}`. Since Vector 0.57 that interpolation is off by default, so
-`compose/docker-compose.yml` turns it on with `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true`. Without it the
-config would still validate, but Vector would send to the literal string `${BETTERSTACK_INGEST_HOST}`.
+`compose/docker-compose.yml` turns it on with `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true`. Without it
+Vector 0.59 refuses the config: `validate` and startup both fail (exit 78) because the sink's `uri` has no static host.
 
 **A wrong token fails silently.** Vector retries only on 408, 429 and 5xx. A 401/403 (wrong or revoked token)
 drops the events. Only the absence alert below catches that, which is why it says "no events", not "no pass".
