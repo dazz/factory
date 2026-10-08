@@ -1,0 +1,18 @@
+name: validate
+
+on: push
+
+jobs:
+  vector:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: vector validate
+        run: |
+          docker run --rm \
+            -v "$PWD/infra/vector/vector.yaml:/etc/vector/vector.yaml:ro" \
+            -e VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true \
+            -e BETTERSTACK_INGEST_HOST=placeholder.invalid \
+            -e BETTERSTACK_SOURCE_TOKEN=placeholder \
+            timberio/vector:0.59.0-alpine \
+            validate --no-environment /etc/vector/vector.yaml
