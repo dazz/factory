@@ -12,7 +12,9 @@ transforms:
       parsed, err = parse_json(.message)
       if err == null && is_object(parsed) {
         . = merge(., object!(parsed))
-        del(.message)
+        # the line Better Stack shows as Message; every field stays searchable on its own
+        who = if .automation == null { .kind } else { .automation }
+        .message = join!(compact([.repository, who, .issue, .level, .outcome, .detail]), " · ")
       } else {
         # a broken line must not pass silently: the error alert catches it; not part of schema v1, born in this pipeline
         .outcome = "undecodable"; .level = "error"; .detail = slice!(.message, 0, 500)
