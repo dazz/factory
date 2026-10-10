@@ -5,7 +5,8 @@ The box-wide services of the factory, one compose project (`compose/`). Today th
 ## Vector → Better Stack
 
 One Vector container for the whole box. It tails each runner's event file (schema v1, one JSON object per line)
-and ships every event to one Better Stack source. Nothing else on the box is mounted.
+and ships every event except `heartbeat` to one Better Stack source. Every event, heartbeats included, also pings
+that repository's Better Stack Uptime heartbeat. Nothing else on the box is mounted.
 
 ### Start, stop, logs
 
@@ -26,21 +27,24 @@ but keep the rule: the README is for every box.)
 
 ### `.env`
 
-Better Stack → Telemetry → Sources → Connect source (platform: HTTP / Vector). Copy the two values into `.env`:
+Better Stack → Telemetry → Sources → Connect source (platform: HTTP / Vector) gives the first two values, the
+Uptime heartbeat (see [Alerts](#alerts-create-by-hand)) the third:
 
 | Variable | Value |
 |---|---|
 | `BETTERSTACK_SOURCE_TOKEN` | the source token |
 | `BETTERSTACK_INGEST_HOST` | the ingesting host, without `https://` |
+| `BETTERSTACK_HEARTBEAT_URL_DAZZHUB` | the heartbeat URL, `https://uptime.betterstack.com/api/v1/heartbeat/<token>` |
 
-`.env` is git-ignored. Never commit it.
+`.env` is git-ignored. Never commit it; the heartbeat URL is a secret too.
 
-`vector.yaml` reads both with `${VAR}`. Since Vector 0.57 that interpolation is off by default, so
+`vector.yaml` reads all three with `${VAR}`. Since Vector 0.57 that interpolation is off by default, so
 `compose/docker-compose.yml` turns it on with `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true`. Without it
 Vector 0.59 refuses the config: `validate` and startup both fail (exit 78) because the sink's `uri` has no static host.
 
 **A wrong token fails silently.** Vector retries only on 408, 429 and 5xx. A 401/403 (wrong or revoked token)
-drops the events. Only the absence alert below catches that, which is why it says "no events", not "no pass".
+drops the events. A wrong heartbeat URL is caught by the heartbeat itself: it stays silent and pushes. A wrong
+source token is not caught by any alert: the heartbeat stays up while the logs stay empty.
 
 ### Free tier (check once in the account, write the numbers here)
 
@@ -54,17 +58,19 @@ The error alert's push depends on the last row. If push is not included, the ale
 
 ### Alerts (create by hand)
 
-Better Stack → Telemetry → Alerts → Create alert, source: this one.
+1. **Error, global, once.** Better Stack → Telemetry → Alerts → Create alert, source: this one. Query
+   `level = "error"`, no repository filter. Condition: more than 0 matching events in 1 minute. Notify: push at
+   once. This also catches `outcome = "undecodable"` (a line Vector could not decode; it has no `repository`)
+   and every future repository. `warn` does not push.
+2. **Uptime heartbeat, once per repository.** Better Stack → Uptime → Heartbeats → Create: name
+   `factory dazz/dazzhub`, period 5 minutes, grace 10 minutes, notify: push. Copy its URL into `.env` as
+   `BETTERSTACK_HEARTBEAT_URL_DAZZHUB`. Any event resets it, and the runner writes at least one every
+   5 minutes (dazz/dazzhub#615), so a long walker session never fires it. It goes down when the runner, Vector
+   or the heartbeat URL is dead; Vector's death looks like the runner's, on purpose.
 
-1. **Error, global, once.** Query `level = "error"`, no repository filter. Condition: more than 0 matching
-   events in 1 minute. Notify: push at once. This also catches `outcome = "undecodable"` (a line Vector could
-   not decode; it has no `repository`) and every future repository. `warn` does not push.
-2. **No events, once per repository.** Query `repository = "dazz/dazzhub"`. Condition: 0 matching events in
-   20 minutes. Notify: push, titled "dazz/dazzhub: no events for 20 minutes". Needs the runner's 5-minute
-   heartbeat (dazz/dazzhub#615); without it every long walker session would fire.
-
-**After `make automations-stop` the "no events" push arrives 20 minutes later, on purpose.** Better Stack cannot
-tell a wanted stop from a crash, and "the factory is off" is worth a push. It is not a false alarm.
+**After `make automations-stop` the heartbeat push arrives up to 15 minutes later, on purpose.** Better Stack
+cannot tell a wanted stop from a crash, and "the factory is off" is worth a push. It is not a false alarm.
+`make automations-start` sets it up again with the next event.
 
 ### One-line test
 
@@ -79,8 +85,9 @@ line in `detail`, and pushes the same way.
 
 ### Live tail
 
-Save a default view that hides `outcome = "heartbeat"` (the runner writes one every 5 minutes). Columns:
-`dt repository automation issue outcome detail`.
+Heartbeat events never reach the logs (`split` in `vector.yaml` drops them; they only feed the Uptime heartbeat).
+On a long session, the walker's `overdue` warning and the session's `.out` file remain the view. Columns for a
+saved view: `dt repository automation issue outcome detail`.
 
 ### A second repository
 
@@ -98,12 +105,31 @@ transforms:
     inputs: [dazzhub, other]
 ```
 
-`docker compose restart vector`, then add that repository's own "no events" alert (alert 2). The error alert
-already covers it.
+Its own Uptime heartbeat (alert 2) and env variable, `BETTERSTACK_HEARTBEAT_URL_OTHER`, in `.env`, `.env.example`
+and the CI placeholders. Then route on `.repository` so each heartbeat sees only its repository's events, and move
+`uptime_dazzhub` to its route:
+
+```yaml
+transforms:
+  by_repository:
+    type: route
+    inputs: [decode]
+    route:
+      dazzhub: '.repository == "dazz/dazzhub"'
+      other: '.repository == "owner/other"'
+sinks:
+  uptime_dazzhub:
+    inputs: [by_repository.dazzhub]
+  uptime_other:                                 # a copy of uptime_dazzhub with the other variable
+    inputs: [by_repository.other]
+```
+
+`docker compose restart vector`. The error alert already covers the new repository.
 
 ### Vector version
 
 The image tag is pinned in two places: `compose/docker-compose.yml` and `.github/workflows/validate.yml`. Move both
 together, and read the Vector upgrade guides in between. CI runs
-`vector validate --no-environment` on every push with placeholder values for the two variables; it finds config
-mistakes, not a wrong token.
+`vector validate --no-environment` on every push with placeholder values for the variables; it finds config
+mistakes, not a wrong token. It warns that `split.heartbeat` has no consumers: wanted, that route exists to drop
+heartbeats.

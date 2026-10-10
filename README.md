@@ -16,7 +16,7 @@ gate, skills) is application knowledge and stays there.
 infra/
   compose/
     docker-compose.yml   one compose project for the box; today one Vector container
-    .env.example         BETTERSTACK_SOURCE_TOKEN, BETTERSTACK_INGEST_HOST
+    .env.example         BETTERSTACK_SOURCE_TOKEN, BETTERSTACK_INGEST_HOST, BETTERSTACK_HEARTBEAT_URL_DAZZHUB
   vector/
     vector.yaml          one file source per repository (explicit paths, no globs) → decode → Better Stack
   README.md              start, stop, the two alerts in Better Stack, the one-line test

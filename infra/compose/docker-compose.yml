@@ -4,7 +4,7 @@ services:
   vector:
     image: timberio/vector:0.59.0-alpine                # pinned; the CI workflow uses the same tag, move both together
     restart: unless-stopped
-    env_file: .env                                      # BETTERSTACK_SOURCE_TOKEN, BETTERSTACK_INGEST_HOST, never in the repo
+    env_file: .env                                      # BETTERSTACK_* (see .env.example), never in the repo
     environment:
       VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"  # since 0.57 Vector leaves ${VAR} in vector.yaml literal without it
     volumes:
