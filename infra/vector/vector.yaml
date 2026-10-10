@@ -22,12 +22,26 @@ transforms:
       del(.file); del(.source_type); del(.host); del(.timestamp)   # Vector's own fields, incl. its second time field
       .dt = .time                                      # Better Stack reads the event time from dt; on undecodable lines .time is null → arrival time
 
+  split:                                               # heartbeats only prove liveness; in the live tail they buried the lines that carry state
+    type: route
+    inputs: [decode]
+    route:
+      heartbeat: '.outcome == "heartbeat"'             # no consumer; everything else leaves as split._unmatched
+
 sinks:
   better_stack:
     type: http
-    inputs: [decode]
+    inputs: [split._unmatched]
     uri: "https://${BETTERSTACK_INGEST_HOST}"
     method: post
     encoding: { codec: json }
     auth: { strategy: bearer, token: "${BETTERSTACK_SOURCE_TOKEN}" }
     buffer: { type: disk, max_size: 268435488 }        # the minimum; survives restarts. No retry_attempts: the default retries practically forever
+
+  uptime_dazzhub:                                      # one per repository: any event resets the Better Stack Uptime heartbeat
+    type: http
+    inputs: [decode]                                   # all events, not only heartbeats; second repository: route on .repository first (README)
+    uri: "${BETTERSTACK_HEARTBEAT_URL_DAZZHUB}"
+    method: post
+    encoding: { codec: json }
+    buffer: { type: memory, when_full: drop_newest }   # a late ping is worthless, and a stuck Uptime must never block the log sink
