@@ -1,0 +1,60 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "files": {
+    "includes": ["src/**", "tests/**", "*.json"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "style": {
+        "noMagicNumbers": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/**/Domain/**", "src/**/Application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "node:events": "No message bus: use-cases call each other directly (STACK rules)."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["tests/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noMagicNumbers": "off",
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "bun:test": {
+                    "importNames": ["mock", "spyOn", "jest"],
+                    "message": "No mocks: tests use in-memory adapters (STACK rules)."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
