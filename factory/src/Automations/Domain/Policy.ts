@@ -23,6 +23,8 @@ export interface Limits {
 export interface PolicyFields {
   /** `owner/repo` — the project ID itself; everything but the checkout derives from it. */
   readonly repository: string;
+  /** The forge host for event lines (`github.com`) — omitted on lines without a valid policy. */
+  readonly forge: string;
   /** The local clone; the only path in the policy (contracts/policy.md). */
   readonly checkout: string;
   readonly tick: IsoDuration;
@@ -36,14 +38,18 @@ export interface PolicyFields {
  */
 export class Policy {
   readonly repository: string;
+  readonly forge: string;
   readonly checkout: string;
   readonly tick: IsoDuration;
   readonly limits: Limits;
 
   constructor(fields: PolicyFields) {
-    const { repository, checkout, tick, limits } = fields;
+    const { repository, forge, checkout, tick, limits } = fields;
     if (!REPOSITORY.test(repository)) {
       throw new Error(`repo.repository: ${JSON.stringify(repository)} is not owner/repo`);
+    }
+    if (forge.trim() === "") {
+      throw new Error("repo.forge: must not be empty");
     }
     if (!checkout.startsWith("/")) {
       throw new Error(`repo.paths.checkout: ${JSON.stringify(checkout)} is not an absolute path`);
@@ -61,6 +67,7 @@ export class Policy {
       throw new Error(`policy.limits.time: ${limits.time.text} must be a positive duration`);
     }
     this.repository = repository;
+    this.forge = forge;
     this.checkout = checkout;
     this.tick = tick;
     this.limits = limits;

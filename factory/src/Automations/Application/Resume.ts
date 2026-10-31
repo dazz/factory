@@ -35,6 +35,8 @@ export class Resume {
 
     const reading = await policySource.read();
     if (reading instanceof Policy) {
+      // In effect before its announcement, so the line itself carries the forge.
+      this.context.policy = reading;
       await this.record({
         name: "PolicyLoaded",
         at: clock.now(),
@@ -42,7 +44,6 @@ export class Resume {
         limits: { turns: reading.limits.turns, time: reading.limits.time.text },
       });
       await this.record({ name: "ProjectResumed", at: clock.now() });
-      this.context.policy = reading;
       return { kind: "resumed" };
     }
     await this.record({ name: "ResumeFailed", at: clock.now(), reason: reading.problem });

@@ -27,6 +27,7 @@ import { ManualClock } from "~/Shared/Clock.ts";
 export function validPolicy(overrides: Partial<PolicyFields> = {}): Policy {
   return new Policy({
     repository: "dazz/foo",
+    forge: "github.com",
     checkout: "/home/dazz/checkouts/foo",
     tick: IsoDuration.parse("PT15M", "policy.tick"),
     limits: { turns: 50, time: IsoDuration.parse("PT20M", "policy.limits.time") },

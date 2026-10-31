@@ -5,6 +5,7 @@ import { Policy } from "~/Automations/Domain/Policy.ts";
 function fields(overrides: Partial<ConstructorParameters<typeof Policy>[0]> = {}) {
   return {
     repository: "dazz/foo",
+    forge: "github.com",
     checkout: "/home/dazz/checkouts/foo",
     tick: IsoDuration.parse("PT15M", "policy.tick"),
     limits: { turns: 50, time: IsoDuration.parse("PT20M", "policy.limits.time") },

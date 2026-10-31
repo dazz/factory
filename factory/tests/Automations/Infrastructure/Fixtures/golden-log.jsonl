@@ -1,0 +1,24 @@
+{"schema":1,"time":"2026-10-31T12:00:00.000Z","kind":"project","repository":"dazz/foo","outcome":"started","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:01.000Z","kind":"policy","repository":"dazz/foo","forge":"github.com","outcome":"loaded","tick":"PT15M","limits":{"turns":50,"time":"PT20M"},"level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:02.000Z","kind":"automations","repository":"dazz/foo","forge":"github.com","outcome":"never-valid","detail":"automationz: unknown key","commit":"c0","level":"error"}
+{"schema":1,"time":"2026-10-31T12:00:03.000Z","kind":"tick","repository":"dazz/foo","forge":"github.com","outcome":"idle","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:04.000Z","kind":"automations","repository":"dazz/foo","forge":"github.com","outcome":"loaded","commit":"c1","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:05.000Z","kind":"session","repository":"dazz/foo","forge":"github.com","automation":"board-walker","issue":"ticket-42","outcome":"started","sessionId":"s1","revision":"r1","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:06.000Z","kind":"project","repository":"dazz/foo","forge":"github.com","outcome":"heartbeat","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:07.000Z","kind":"tick","repository":"dazz/foo","forge":"github.com","outcome":"skipped","detail":"running","trigger":"manual","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:08.000Z","kind":"session","repository":"dazz/foo","forge":"github.com","automation":"board-walker","issue":"ticket-42","outcome":"succeeded","sessionId":"s1","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:09.000Z","kind":"tick","repository":"dazz/foo","forge":"github.com","outcome":"idle","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:10.000Z","kind":"automations","repository":"dazz/foo","forge":"github.com","outcome":"invalid","detail":"duplicate name board-walker","commit":"c2","keptCommit":"c1","level":"error"}
+{"schema":1,"time":"2026-10-31T12:00:11.000Z","kind":"session","repository":"dazz/foo","forge":"github.com","automation":"pull-request-reactor","issue":"pr-7","outcome":"started","sessionId":"s2","revision":"r5","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:12.000Z","kind":"session","repository":"dazz/foo","forge":"github.com","automation":"pull-request-reactor","issue":"pr-7","outcome":"failed","sessionId":"s2","level":"warn"}
+{"schema":1,"time":"2026-10-31T12:00:13.000Z","kind":"tick","repository":"dazz/foo","forge":"github.com","outcome":"idle","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:14.000Z","kind":"resume","repository":"dazz/foo","forge":"github.com","outcome":"ignored","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:15.000Z","kind":"session","repository":"dazz/foo","forge":"github.com","automation":"board-walker","issue":"ticket-42","outcome":"started","sessionId":"s3","revision":"r9","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:16.000Z","kind":"project","repository":"dazz/foo","outcome":"started","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:17.000Z","kind":"session","repository":"dazz/foo","automation":"board-walker","issue":"ticket-42","outcome":"aborted","detail":"orphaned","sessionId":"s3","level":"warn"}
+{"schema":1,"time":"2026-10-31T12:00:18.000Z","kind":"project","repository":"dazz/foo","outcome":"paused","detail":"policy unreadable: not YAML","level":"error"}
+{"schema":1,"time":"2026-10-31T12:00:19.000Z","kind":"tick","repository":"dazz/foo","outcome":"skipped","detail":"paused","trigger":"schedule","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:20.000Z","kind":"resume","repository":"dazz/foo","outcome":"failed","detail":"policy.tick: P15M is above the maximum PT24H","level":"error"}
+{"schema":1,"time":"2026-10-31T12:00:21.000Z","kind":"policy","repository":"dazz/foo","forge":"github.com","outcome":"loaded","tick":"PT10M","limits":{"turns":40,"time":"PT15M"},"level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:22.000Z","kind":"project","repository":"dazz/foo","forge":"github.com","outcome":"resumed","level":"info"}
+{"schema":1,"time":"2026-10-31T12:00:23.000Z","kind":"cost","repository":"dazz/foo","forge":"github.com","outcome":"recorded","amountUsd":0.42,"level":"info"}

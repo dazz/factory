@@ -82,13 +82,14 @@ export class StartProject {
 
     reading ??= await policySource.read();
     if (reading instanceof Policy) {
+      // In effect before its announcement, so the line itself carries the forge.
+      this.context.policy = reading;
       await this.record({
         name: "PolicyLoaded",
         at: clock.now(),
         tick: reading.tick.text,
         limits: { turns: reading.limits.turns, time: reading.limits.time.text },
       });
-      this.context.policy = reading;
     } else {
       // Unreadable and invalid both pause (contracts/policy.md); a replayed
       // pause stays paused regardless (FR-051) — only `resume` lifts it.
