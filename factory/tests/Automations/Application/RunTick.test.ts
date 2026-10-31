@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { automationName } from "~/Automations/Domain/Ids.ts";
 import { fail, hangUntilAborted } from "~/Automations/Infrastructure/FakeHarness.ts";
+import { InMemoryEventLog } from "~/Automations/Infrastructure/InMemoryEventLog.ts";
 import {
   composeTestProject,
   finding,
@@ -143,5 +144,21 @@ describe("the tick", () => {
     await tick();
 
     expect(log.names()).toEqual(["AutomationsLoaded", "ProjectIdled", "ProjectIdled"]);
+  });
+
+  test("FR-053 — a failed append stops the factory before it acts: no session, error out", async () => {
+    // Disk full, fsync failed: the append rejects before anything lands.
+    class FullDisk extends InMemoryEventLog {
+      override append(): Promise<void> {
+        return Promise.reject(new Error("fsync failed: no space left on device"));
+      }
+    }
+    const { tick, harness, tracker } = composeTestProject({ log: new FullDisk() });
+    tracker.present("board-walker", finding("ticket-42", "r1"));
+
+    // The error propagates — main translates it to the error exit (74),
+    // the supervisor restarts, the replay catches up.
+    expect(tick()).rejects.toThrow("no space left on device");
+    expect(harness.calls()).toEqual([]);
   });
 });
