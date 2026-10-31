@@ -1,0 +1,3 @@
+#!/bin/sh
+# exec, so s6-svc -h / -1 reach the factory process itself, not a shell around it (STACK).
+exec factory start dazz/factory

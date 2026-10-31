@@ -25,6 +25,11 @@ also come from starting the runner once). Otherwise Docker creates them, and wit
 root and the runner cannot write its event file. (This box runs rootless Docker, where they would belong to you,
 but keep the rule: the README is for every box.)
 
+**File ownership of the `factory` service.** The factory image sets no `USER`: on rootless Docker, root in the
+container is the host user, so everything the factory writes to its volumes belongs to you. On a **rootful**
+daemon the same files would belong to root — there, add `user: "<uid>:<gid>"` to the `factory` service in
+`compose/docker-compose.yml` (the image works either way).
+
 ### `.env`
 
 Better Stack → Telemetry → Sources → Connect source (platform: HTTP / Vector) gives the first two values, the

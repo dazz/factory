@@ -1,0 +1,2 @@
+# Not yet in the user bundle (no s6-rc.d/user/contents.d entry): `factory start` does not
+# exist until Phase 6; the service is enabled in T036 by adding the contents.d entry.
