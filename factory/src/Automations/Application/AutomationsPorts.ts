@@ -3,7 +3,7 @@ import type { Automations } from "~/Automations/Domain/Automations.ts";
 import type { ConsumedInput, Finding } from "~/Automations/Domain/ConsumedInput.ts";
 import type { Event, SessionOutcome } from "~/Automations/Domain/Event.ts";
 import type { AutomationName, CommitId } from "~/Automations/Domain/Ids.ts";
-import type { IsoDuration } from "~/Automations/Domain/IsoDuration.ts";
+import { IsoDuration } from "~/Automations/Domain/IsoDuration.ts";
 import type { Limits, Policy } from "~/Automations/Domain/Policy.ts";
 
 /**
@@ -18,6 +18,20 @@ export type Stop = () => void;
 export interface Scheduler {
   start(interval: IsoDuration, fire: () => Promise<void>): Stop;
 }
+
+/**
+ * The liveness heartbeat cadence (FR-028), tied to the Uptime check: its
+ * period is 5 minutes plus 10 minutes grace — 15-minute ticks or long
+ * sessions would trigger it, a 5-minute heartbeat never does.
+ */
+export const HEARTBEAT_INTERVAL = IsoDuration.parse("PT5M", "heartbeat interval");
+
+/**
+ * An append or fsync failed (FR-053): the factory never acts without a
+ * record — the process ends with exit 74, the supervisor restarts it and
+ * the replay catches up.
+ */
+export class EventLogUnwritable extends Error {}
 
 /** Runs one session. The `FakeHarness` is a shipped adapter, not a test hack. */
 export interface Harness {

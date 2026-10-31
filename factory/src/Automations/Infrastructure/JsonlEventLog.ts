@@ -1,6 +1,6 @@
 import { type FileHandle, mkdir, open, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { EventLog } from "~/Automations/Application/AutomationsPorts.ts";
+import { type EventLog, EventLogUnwritable } from "~/Automations/Application/AutomationsPorts.ts";
 import { type Event, identityOf, levelOf, type SessionLimits } from "~/Automations/Domain/Event.ts";
 import {
   automationName,
@@ -68,12 +68,17 @@ export class JsonlEventLog implements EventLog {
   }
 
   private async write(event: Event): Promise<void> {
-    if (this.handle === undefined) {
-      await mkdir(dirname(this.path), { recursive: true });
-      this.handle = await open(this.path, "a");
+    try {
+      if (this.handle === undefined) {
+        await mkdir(dirname(this.path), { recursive: true });
+        this.handle = await open(this.path, "a");
+      }
+      await this.handle.write(`${JSON.stringify(this.toLine(event))}\n`, null, "utf8");
+      await this.handle.sync();
+    } catch (error) {
+      // FR-053: no append, no action — the caller ends the process (exit 74).
+      throw new EventLogUnwritable(`event log unwritable at ${this.path}: ${String(error)}`);
     }
-    await this.handle.write(`${JSON.stringify(this.toLine(event))}\n`, null, "utf8");
-    await this.handle.sync();
   }
 
   private toLine(event: Event): Record<string, unknown> {
