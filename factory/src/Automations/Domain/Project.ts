@@ -1,12 +1,19 @@
 import type { Event, SessionOutcome } from "~/Automations/Domain/Event.ts";
+import type {
+  AutomationName,
+  CommitId,
+  Revision,
+  SessionId,
+  SubjectId,
+} from "~/Automations/Domain/Ids.ts";
 
 export type ProjectState = "running" | "idle" | "paused";
 
 export interface OpenSession {
-  readonly sessionId: string;
-  readonly automation: string;
-  readonly subject: string;
-  readonly revision: string;
+  readonly sessionId: SessionId;
+  readonly automation: AutomationName;
+  readonly subject: SubjectId;
+  readonly revision: Revision;
 }
 
 /**
@@ -18,8 +25,8 @@ export class Project {
   private currentState: ProjectState = "idle";
   private pauseReasonValue: string | undefined;
   private openSessionValue: OpenSession | undefined;
-  private readonly consumed = new Map<string, string>();
-  private lastValidAutomationsCommitValue: string | undefined;
+  private readonly consumed = new Map<string, Revision>();
+  private lastValidAutomationsCommitValue: CommitId | undefined;
   private lastTickValue: Date | undefined;
   private lastSessionOutcomeValue: SessionOutcome | undefined;
   private lastErrorValue: string | undefined;
@@ -107,11 +114,11 @@ export class Project {
   }
 
   /** The revision a session already consumed for automation + subject (FR-035). */
-  consumedRevision(automation: string, subject: string): string | undefined {
+  consumedRevision(automation: AutomationName, subject: SubjectId): Revision | undefined {
     return this.consumed.get(consumedKey(automation, subject));
   }
 
-  lastValidAutomationsCommit(): string | undefined {
+  lastValidAutomationsCommit(): CommitId | undefined {
     return this.lastValidAutomationsCommitValue;
   }
 

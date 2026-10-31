@@ -1,18 +1,27 @@
 import { describe, expect, test } from "bun:test";
 import type { Event } from "~/Automations/Domain/Event.ts";
+import {
+  automationName,
+  commitId,
+  revision,
+  sessionId,
+  subjectId,
+} from "~/Automations/Domain/Ids.ts";
 import { Project } from "~/Automations/Domain/Project.ts";
 
 const at = new Date("2026-10-31T12:00:00.000Z");
 const later = new Date("2026-10-31T12:15:00.000Z");
+const walker = automationName("board-walker");
+const ticket = subjectId("ticket-42");
 
-function started(sessionId = "s1", revision = "r3"): Event {
+function started(session = "s1", rev = "r3"): Event {
   return {
     name: "SessionStarted",
     at,
-    automation: "board-walker",
-    subject: "ticket-42",
-    revision,
-    sessionId,
+    automation: walker,
+    subject: ticket,
+    revision: revision(rev),
+    sessionId: sessionId(session),
   };
 }
 
@@ -87,12 +96,12 @@ describe("sessions and consumed input", () => {
 
     expect(project.state()).toBe("running");
     expect(project.openSession()).toEqual({
-      sessionId: "s1",
-      automation: "board-walker",
-      subject: "ticket-42",
-      revision: "r3",
+      sessionId: sessionId("s1"),
+      automation: walker,
+      subject: ticket,
+      revision: revision("r3"),
     });
-    expect(project.consumedRevision("board-walker", "ticket-42")).toBe("r3");
+    expect(project.consumedRevision(walker, ticket)).toBe(revision("r3"));
   });
 
   test("a failed session keeps its input consumed (FR-035, scenario 9)", () => {
@@ -101,16 +110,16 @@ describe("sessions and consumed input", () => {
       {
         name: "SessionFinished",
         at: later,
-        automation: "board-walker",
-        subject: "ticket-42",
-        sessionId: "s1",
+        automation: walker,
+        subject: ticket,
+        sessionId: sessionId("s1"),
         outcome: "failed",
       },
     ]);
 
     expect(project.openSession()).toBeUndefined();
     expect(project.lastSessionOutcome()).toBe("failed");
-    expect(project.consumedRevision("board-walker", "ticket-42")).toBe("r3");
+    expect(project.consumedRevision(walker, ticket)).toBe(revision("r3"));
   });
 
   test("SessionAborted clears the open session as aborted", () => {
@@ -119,9 +128,9 @@ describe("sessions and consumed input", () => {
       {
         name: "SessionAborted",
         at: later,
-        automation: "board-walker",
-        subject: "ticket-42",
-        sessionId: "s1",
+        automation: walker,
+        subject: ticket,
+        sessionId: sessionId("s1"),
       },
     ]);
 
@@ -134,15 +143,17 @@ describe("sessions and consumed input", () => {
     const project = Project.replay([{ name: "ProjectStarted", at }, started()]);
 
     expect(project.state()).toBe("running");
-    expect(project.openSession()?.sessionId).toBe("s1");
-    expect(project.consumedRevision("board-walker", "ticket-42")).toBe("r3");
+    expect(project.openSession()?.sessionId).toBe(sessionId("s1"));
+    expect(project.consumedRevision(walker, ticket)).toBe(revision("r3"));
   });
 
   test("automation + subject is one consumption key, not two", () => {
     const project = Project.replay([started()]);
 
-    expect(project.consumedRevision("board-walker", "ticket-7")).toBeUndefined();
-    expect(project.consumedRevision("pull-request-reactor", "ticket-42")).toBeUndefined();
+    expect(project.consumedRevision(walker, subjectId("ticket-7"))).toBeUndefined();
+    expect(
+      project.consumedRevision(automationName("pull-request-reactor"), ticket),
+    ).toBeUndefined();
   });
 });
 
@@ -177,30 +188,30 @@ describe("ticks and the heartbeat", () => {
 
 describe("automations revisions", () => {
   test("AutomationsLoaded records the last valid commit", () => {
-    const project = Project.replay([{ name: "AutomationsLoaded", at, commit: "c2" }]);
+    const project = Project.replay([{ name: "AutomationsLoaded", at, commit: commitId("c2") }]);
 
-    expect(project.lastValidAutomationsCommit()).toBe("c2");
+    expect(project.lastValidAutomationsCommit()).toBe(commitId("c2"));
   });
 
   test("AutomationsInvalid keeps the last valid commit and records the problem", () => {
     const project = Project.replay([
-      { name: "AutomationsLoaded", at, commit: "c2" },
+      { name: "AutomationsLoaded", at, commit: commitId("c2") },
       {
         name: "AutomationsInvalid",
         at: later,
         problem: "duplicate name",
-        commit: "c3",
-        keptCommit: "c2",
+        commit: commitId("c3"),
+        keptCommit: commitId("c2"),
       },
     ]);
 
-    expect(project.lastValidAutomationsCommit()).toBe("c2");
+    expect(project.lastValidAutomationsCommit()).toBe(commitId("c2"));
     expect(project.lastError()).toBe("duplicate name");
   });
 
   test("AutomationsNeverValid records the problem and the project keeps ticking idle", () => {
     const project = Project.replay([
-      { name: "AutomationsNeverValid", at, problem: "no automations key", commit: "c1" },
+      { name: "AutomationsNeverValid", at, problem: "no automations key", commit: commitId("c1") },
     ]);
 
     expect(project.state()).toBe("idle");
@@ -210,12 +221,12 @@ describe("automations revisions", () => {
 
   test("a valid load clears an automations problem, but never a pause reason", () => {
     const project = Project.replay([
-      { name: "AutomationsNeverValid", at, problem: "no automations key", commit: "c1" },
-      { name: "AutomationsLoaded", at: later, commit: "c2" },
+      { name: "AutomationsNeverValid", at, problem: "no automations key", commit: commitId("c1") },
+      { name: "AutomationsLoaded", at: later, commit: commitId("c2") },
     ]);
     const paused = Project.replay([
       { name: "ProjectPaused", at, reason: "policy unreadable" },
-      { name: "AutomationsLoaded", at: later, commit: "c2" },
+      { name: "AutomationsLoaded", at: later, commit: commitId("c2") },
     ]);
 
     expect(project.lastError()).toBeUndefined();

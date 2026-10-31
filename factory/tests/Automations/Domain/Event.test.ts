@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { type Event, identityOf, levelOf } from "~/Automations/Domain/Event.ts";
+import {
+  automationName,
+  commitId,
+  revision,
+  sessionId,
+  subjectId,
+} from "~/Automations/Domain/Ids.ts";
 
 const at = new Date("2026-10-31T12:00:00.000Z");
+const walker = automationName("board-walker");
+const ticket = subjectId("ticket-42");
+const s1 = sessionId("s1");
 
 /** Every domain event of the catalog, with its expected kind/outcome/level (data-model.md). */
 const CATALOG: ReadonlyArray<[Event, string, string, string]> = [
@@ -16,15 +26,21 @@ const CATALOG: ReadonlyArray<[Event, string, string, string]> = [
   [{ name: "ProjectResumed", at }, "project", "resumed", "info"],
   [{ name: "ResumeFailed", at, reason: "policy still invalid" }, "resume", "failed", "error"],
   [{ name: "ResumeIgnored", at }, "resume", "ignored", "info"],
-  [{ name: "AutomationsLoaded", at, commit: "c2" }, "automations", "loaded", "info"],
+  [{ name: "AutomationsLoaded", at, commit: commitId("c2") }, "automations", "loaded", "info"],
   [
-    { name: "AutomationsInvalid", at, problem: "duplicate name", commit: "c3", keptCommit: "c2" },
+    {
+      name: "AutomationsInvalid",
+      at,
+      problem: "duplicate name",
+      commit: commitId("c3"),
+      keptCommit: commitId("c2"),
+    },
     "automations",
     "invalid",
     "error",
   ],
   [
-    { name: "AutomationsNeverValid", at, problem: "no automations key", commit: "c1" },
+    { name: "AutomationsNeverValid", at, problem: "no automations key", commit: commitId("c1") },
     "automations",
     "never-valid",
     "error",
@@ -36,10 +52,10 @@ const CATALOG: ReadonlyArray<[Event, string, string, string]> = [
     {
       name: "SessionStarted",
       at,
-      automation: "board-walker",
-      subject: "ticket-42",
-      revision: "r3",
-      sessionId: "s1",
+      automation: walker,
+      subject: ticket,
+      revision: revision("r3"),
+      sessionId: s1,
     },
     "session",
     "started",
@@ -49,9 +65,9 @@ const CATALOG: ReadonlyArray<[Event, string, string, string]> = [
     {
       name: "SessionFinished",
       at,
-      automation: "board-walker",
-      subject: "ticket-42",
-      sessionId: "s1",
+      automation: walker,
+      subject: ticket,
+      sessionId: s1,
       outcome: "succeeded",
     },
     "session",
@@ -62,9 +78,9 @@ const CATALOG: ReadonlyArray<[Event, string, string, string]> = [
     {
       name: "SessionFinished",
       at,
-      automation: "board-walker",
-      subject: "ticket-42",
-      sessionId: "s1",
+      automation: walker,
+      subject: ticket,
+      sessionId: s1,
       outcome: "failed",
     },
     "session",
@@ -75,9 +91,9 @@ const CATALOG: ReadonlyArray<[Event, string, string, string]> = [
     {
       name: "SessionAborted",
       at,
-      automation: "board-walker",
-      subject: "ticket-42",
-      sessionId: "s1",
+      automation: walker,
+      subject: ticket,
+      sessionId: s1,
     },
     "session",
     "aborted",
