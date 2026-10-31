@@ -1,4 +1,4 @@
-import type { Event, SessionOutcome } from "~/Automations/Domain/Event.ts";
+import type { Event, SessionOutcome, SkipReason } from "~/Automations/Domain/Event.ts";
 import type {
   AutomationName,
   CommitId,
@@ -16,6 +16,13 @@ export interface OpenSession {
   readonly revision: Revision;
 }
 
+/** What `factory status` says about the newest finished or aborted session. */
+export interface LastSession {
+  readonly automation: AutomationName;
+  readonly outcome: SessionOutcome;
+  readonly at: Date;
+}
+
 /**
  * The rebuilt state (data-model.md): a fold over the event log, all of it a
  * deletable cache — the log is the source of truth (FR-044). `paused` survives
@@ -28,7 +35,8 @@ export class Project {
   private readonly consumed = new Map<string, Revision>();
   private lastValidAutomationsCommitValue: CommitId | undefined;
   private lastTickValue: Date | undefined;
-  private lastSessionOutcomeValue: SessionOutcome | undefined;
+  private lastTickSkippedValue: SkipReason | undefined;
+  private lastSessionValue: LastSession | undefined;
   private lastErrorValue: string | undefined;
   private lastErrorFromAutomations = false;
 
@@ -70,9 +78,11 @@ export class Project {
       case "ProjectIdled":
         this.currentState = "idle";
         this.lastTickValue = event.at;
+        this.lastTickSkippedValue = undefined;
         return;
       case "TickSkipped":
         this.lastTickValue = event.at;
+        this.lastTickSkippedValue = event.reason;
         return;
       case "SessionStarted":
         this.currentState = "running";
@@ -87,11 +97,15 @@ export class Project {
         return;
       case "SessionFinished":
         this.openSessionValue = undefined;
-        this.lastSessionOutcomeValue = event.outcome;
+        this.lastSessionValue = {
+          automation: event.automation,
+          outcome: event.outcome,
+          at: event.at,
+        };
         return;
       case "SessionAborted":
         this.openSessionValue = undefined;
-        this.lastSessionOutcomeValue = "aborted";
+        this.lastSessionValue = { automation: event.automation, outcome: "aborted", at: event.at };
         return;
       default:
         // ProjectStarted, PolicyLoaded, ResumeIgnored, HeartbeatRecorded —
@@ -127,8 +141,13 @@ export class Project {
     return this.lastTickValue;
   }
 
-  lastSessionOutcome(): SessionOutcome | undefined {
-    return this.lastSessionOutcomeValue;
+  /** Why the last tick was skipped; `undefined` when it ran (`ProjectIdled`). */
+  lastTickSkipped(): SkipReason | undefined {
+    return this.lastTickSkippedValue;
+  }
+
+  lastSession(): LastSession | undefined {
+    return this.lastSessionValue;
   }
 
   lastError(): string | undefined {

@@ -118,7 +118,7 @@ describe("sessions and consumed input", () => {
     ]);
 
     expect(project.openSession()).toBeUndefined();
-    expect(project.lastSessionOutcome()).toBe("failed");
+    expect(project.lastSession()).toEqual({ automation: walker, outcome: "failed", at: later });
     expect(project.consumedRevision(walker, ticket)).toBe(revision("r3"));
   });
 
@@ -135,7 +135,7 @@ describe("sessions and consumed input", () => {
     ]);
 
     expect(project.openSession()).toBeUndefined();
-    expect(project.lastSessionOutcome()).toBe("aborted");
+    expect(project.lastSession()?.outcome).toBe("aborted");
   });
 
   test("a crash directly after SessionStarted rebuilds as an open session with consumed input", () => {
@@ -173,6 +173,7 @@ describe("ticks and the heartbeat", () => {
 
     expect(project.state()).toBe("paused");
     expect(project.lastTick()).toEqual(later);
+    expect(project.lastTickSkipped()).toBe("paused");
   });
 
   test("a heartbeat is never the last tick and changes nothing (FR-028)", () => {
