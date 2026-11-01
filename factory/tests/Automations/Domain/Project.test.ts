@@ -117,6 +117,7 @@ describe("sessions and consumed input", () => {
       },
     ]);
 
+    expect(project.state()).toBe("idle");
     expect(project.openSession()).toBeUndefined();
     expect(project.lastSession()).toEqual({ automation: walker, outcome: "failed", at: later });
     expect(project.consumedRevision(walker, ticket)).toBe(revision("r3"));
@@ -134,6 +135,7 @@ describe("sessions and consumed input", () => {
       },
     ]);
 
+    expect(project.state()).toBe("idle"); // a restarted project must tick again
     expect(project.openSession()).toBeUndefined();
     expect(project.lastSession()?.outcome).toBe("aborted");
   });

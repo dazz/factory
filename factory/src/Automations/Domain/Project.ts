@@ -96,6 +96,10 @@ export class Project {
         this.consumed.set(consumedKey(event.automation, event.subject), event.revision);
         return;
       case "SessionFinished":
+        // Back to idle: `running` means an open session, and only that. The
+        // no-parallel-session guard during a drain is the tick's own flag —
+        // a replayed `running` here would skip every tick after a restart.
+        this.currentState = "idle";
         this.openSessionValue = undefined;
         this.lastSessionValue = {
           automation: event.automation,
@@ -104,6 +108,7 @@ export class Project {
         };
         return;
       case "SessionAborted":
+        this.currentState = "idle";
         this.openSessionValue = undefined;
         this.lastSessionValue = { automation: event.automation, outcome: "aborted", at: event.at };
         return;
