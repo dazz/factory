@@ -54,15 +54,39 @@ describe("RunProject", () => {
     await handle.finished;
   });
 
-  test("SIGHUP lands on the resume use-case", async () => {
+  test("SIGHUP lands on the resume use-case; the resumed policy's tick takes effect now", async () => {
     const t = composeTestProject({ policy: invalidPolicy() });
     const handle = started(await t.run());
-    t.policySource.set(validPolicy());
+    t.policySource.set(validPolicy({ tick: IsoDuration.parse("PT10M", "x") }));
 
     t.control.resume?.();
     await settle();
 
     expect(t.log.names().slice(-2)).toEqual(["PolicyLoaded", "ProjectResumed"]);
+    // The paused-start default timer stops; the policy's interval replaces it.
+    expect(t.scheduler.jobs.map((job) => [job.interval.text, job.stopped])).toEqual([
+      ["PT15M", true],
+      ["PT5M", false],
+      ["PT10M", false],
+    ]);
+    await t.scheduler.jobs[2]?.fire(); // the new timer drives real ticks
+    expect(t.log.names().at(-1)).toBe("ProjectIdled");
+
+    t.control.shutdown?.();
+    await handle.finished;
+    expect(t.scheduler.jobs.every((job) => job.stopped)).toBe(true);
+  });
+
+  test("a failed resume keeps the running timer — nothing to retune (FR-051)", async () => {
+    const t = composeTestProject({ policy: invalidPolicy() });
+    const handle = started(await t.run());
+    t.policySource.set(invalidPolicy("policy.tick: not an ISO duration"));
+
+    t.control.resume?.();
+    await settle();
+
+    expect(t.log.names().at(-1)).toBe("ResumeFailed");
+    expect(t.scheduler.jobs.map((job) => job.stopped)).toEqual([false, false]);
     t.control.shutdown?.();
     await handle.finished;
   });

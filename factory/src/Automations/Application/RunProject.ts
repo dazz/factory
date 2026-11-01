@@ -1,8 +1,4 @@
-import type {
-  ControlChannel,
-  Scheduler,
-  Stop,
-} from "~/Automations/Application/AutomationsPorts.ts";
+import type { ControlChannel, Scheduler } from "~/Automations/Application/AutomationsPorts.ts";
 import {
   HEARTBEAT_INTERVAL,
   type RecordHeartbeat,
@@ -55,16 +51,28 @@ export class RunProject {
       crash = reject;
     });
     const shutdown = new Promise<void>((resolve) => control.onShutdown(resolve));
+    const fireTick = () => this.flows.tick.run("schedule").catch(crash);
     // Skipped ticks on a paused project run at the schema default (contracts/policy.md).
-    const interval = this.context.policy?.tick ?? DEFAULT_TICK;
-    const stops: Stop[] = [
-      scheduler.start(interval, () => this.flows.tick.run("schedule").catch(crash)),
-      scheduler.start(HEARTBEAT_INTERVAL, () => this.flows.heartbeat.run().catch(crash)),
-    ];
+    let stopTicks = scheduler.start(this.context.policy?.tick ?? DEFAULT_TICK, fireTick);
+    const stopHeartbeat = scheduler.start(HEARTBEAT_INTERVAL, () =>
+      this.flows.heartbeat.run().catch(crash),
+    );
     control.onTickNow(() => void this.flows.tick.run("manual").catch(crash));
-    control.onResume(() => void this.flows.resume.run().catch(crash));
+    control.onResume(
+      () =>
+        void this.flows.resume
+          .run()
+          .then((result) => {
+            if (result.kind !== "resumed") return;
+            // The resumed policy's tick takes effect now, not at the next process start.
+            stopTicks();
+            stopTicks = scheduler.start(this.context.policy?.tick ?? DEFAULT_TICK, fireTick);
+          })
+          .catch(crash),
+    );
     const finished = Promise.race([shutdown, crashed]).finally(() => {
-      for (const stop of stops) stop();
+      stopTicks();
+      stopHeartbeat();
     });
     return { kind: "started", pauseReason: this.context.project.pauseReason(), finished };
   }
