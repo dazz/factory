@@ -1,4 +1,4 @@
-import type { ControlChannel } from "~/Automations/Application/AutomationsPorts.ts";
+import type { ControlChannel, ControlSignal } from "~/Automations/Application/AutomationsPorts.ts";
 
 /**
  * The control channel as Unix signals (STACK): SIGHUP = re-read the policy
@@ -15,5 +15,15 @@ export class SignalControlChannel implements ControlChannel {
 
   onTickNow(fn: () => void): void {
     process.on("SIGUSR1", fn);
+  }
+
+  onShutdown(fn: () => void): void {
+    process.once("SIGTERM", fn);
+    process.once("SIGINT", fn);
+  }
+
+  /** The sending half — same channel, seen from the one-shot CLI process. */
+  signal(pid: number, signal: ControlSignal): void {
+    process.kill(pid, signal);
   }
 }

@@ -57,6 +57,18 @@ describe("FlockInstanceLock", () => {
     next.release();
   });
 
+  test("holderPid reads the signal address; an unwritten pidfile yields undefined", async () => {
+    const path = await pidfilePath();
+    const holder = new FlockInstanceLock(path, 200, 200);
+
+    // Not even a file yet: the read window closes empty-handed.
+    expect(await holder.holderPid()).toBeUndefined();
+
+    await holder.acquire();
+    expect(await holder.holderPid()).toBe(process.pid);
+    holder.release();
+  });
+
   test("isHeld probes without taking: true while held, false after, file untouched", async () => {
     const path = await pidfilePath();
     const holder = new FlockInstanceLock(path, 200);

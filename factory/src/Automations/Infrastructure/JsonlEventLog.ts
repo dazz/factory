@@ -1,6 +1,7 @@
 import { type FileHandle, mkdir, open, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { type EventLog, EventLogUnwritable } from "~/Automations/Application/AutomationsPorts.ts";
+import type { EventLog } from "~/Automations/Application/AutomationsPorts.ts";
+import { EventLogUnwritable } from "~/Automations/Application/EventLogUnwritable.ts";
 import { type Event, identityOf, levelOf, type SessionLimits } from "~/Automations/Domain/Event.ts";
 import {
   automationName,

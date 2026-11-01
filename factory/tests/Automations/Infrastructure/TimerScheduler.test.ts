@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { HEARTBEAT_INTERVAL } from "~/Automations/Application/AutomationsPorts.ts";
 import { IsoDuration } from "~/Automations/Domain/IsoDuration.ts";
 import { TimerScheduler } from "~/Automations/Infrastructure/TimerScheduler.ts";
 
@@ -39,8 +38,11 @@ describe("TimerScheduler", () => {
     expect(fired).toBeGreaterThanOrEqual(2);
   });
 
-  test("the heartbeat interval is the named 5-minute constant (Uptime period)", () => {
-    expect(HEARTBEAT_INTERVAL.text).toBe("PT5M");
-    expect(HEARTBEAT_INTERVAL.milliseconds).toBe(5 * 60 * 1000);
+  test("sleep waits out its milliseconds — the poll loops' one bounded wait", async () => {
+    const before = Date.now();
+
+    await new TimerScheduler().sleep(30);
+
+    expect(Date.now() - before).toBeGreaterThanOrEqual(25);
   });
 });

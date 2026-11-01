@@ -1,22 +1,9 @@
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { Command } from "@cliffy/command";
-import type {
-  ControlChannel,
-  EventLog,
-  Scheduler,
-} from "~/Automations/Application/AutomationsPorts.ts";
-import {
-  EventLogUnwritable,
-  HEARTBEAT_INTERVAL,
-} from "~/Automations/Application/AutomationsPorts.ts";
-import type { ResumeResult } from "~/Automations/Application/Resume.ts";
-import type { ProjectContext, StartResult } from "~/Automations/Application/StartProject.ts";
+import { EventLogUnwritable } from "~/Automations/Application/EventLogUnwritable.ts";
+import type { ResumeRequestOutcome } from "~/Automations/Application/RequestResume.ts";
+import type { TickRequestOutcome } from "~/Automations/Application/RequestTick.ts";
+import type { RunHandle } from "~/Automations/Application/RunProject.ts";
 import type { StatusResult } from "~/Automations/Application/Status.ts";
-import type { Event, TickTrigger } from "~/Automations/Domain/Event.ts";
-import { DEFAULT_TICK } from "~/Automations/Domain/Policy.ts";
-import type { Clock } from "~/Shared/Clock.ts";
 
 /** Exit codes (contracts/cli.md). */
 const EXIT_OK = 0;
@@ -27,196 +14,115 @@ const EXIT_LOCK_HELD = 75;
 
 const PROJECT_ID = /^[^/\s]+\/[^/\s]+$/;
 const UNKNOWN_PROJECT = "project unknown: no policy file and no event log";
+const NO_PID = "running, but the pidfile holds no PID yet — try again";
 
 /** Status output: label column width of the contracts/cli.md example. */
 const STATUS_LABEL_WIDTH = 15;
 
-/** The pidfile may be empty for an instant (between lock acquisition and the PID write). */
-const PID_READ_WINDOW_MS = 1_000;
-const PID_READ_EVERY_MS = 50;
-/** `resume` polls the log briefly for the running process's result event. */
-const RESUME_POLL_WINDOW_MS = 2_000;
-const RESUME_POLL_EVERY_MS = 200;
-
-export interface Roots {
-  readonly configDir: string;
-  readonly stateDir: string;
-}
-
-/** What one project's wiring hands the flows — main builds it from the real adapters. */
+/** What one project's wiring hands the flows: the use-case entry points, nothing else. */
 export interface Assembly {
-  readonly context: ProjectContext;
-  start(): Promise<StartResult>;
-  tick(trigger: TickTrigger): Promise<void>;
-  resume(): Promise<ResumeResult>;
+  /** The foreground process: start sequence, ticks, heartbeat, signals. */
+  run(): Promise<RunHandle>;
+  /** Tick now: nudge the running process, or run a one-shot generation. */
+  tick(): Promise<TickRequestOutcome>;
+  /** Lift a pause: via the running process, or a one-shot generation. */
+  resume(): Promise<ResumeRequestOutcome>;
   status(): Promise<StatusResult>;
-  /** Non-blocking lock probe: is a project process alive? */
-  probe(): boolean;
-  readonly scheduler: Scheduler;
-  readonly control: ControlChannel;
-  readonly log: EventLog;
-  readonly clock: Clock;
-  pidfile: string;
-  kill: (pid: number, signal: "SIGHUP" | "SIGUSR1") => void;
 }
 
-export type Compose = (project: string, roots: Roots) => Assembly;
+/** The `--config-dir` / `--state-dir` flags — main resolves env vars and XDG defaults. */
+export interface RootOptions {
+  readonly configDir?: string;
+  readonly stateDir?: string;
+}
+
+export type Compose = (project: string, options: RootOptions) => Assembly;
 export type Print = (line: string) => void;
 
-/**
- * `factory start <project>`: the project process in the foreground
- * (supervisor-friendly). Start sequence, then scheduled ticks, the liveness
- * heartbeat (FR-028) and the signal handlers — until `shutdown` resolves
- * (SIGTERM) or an error ends the process (FR-053).
- */
-export async function startFlow(
-  a: Assembly,
-  print: Print,
-  shutdown: Promise<void>,
-): Promise<number> {
-  let started: StartResult;
+/** `factory start <project>`: print the handle, then wait for its end (contracts/cli.md). */
+export async function startFlow(a: Assembly, print: Print): Promise<number> {
+  let handle: RunHandle;
   try {
-    started = await a.start();
+    handle = await a.run();
   } catch (error) {
     print(String(error));
     return exitCodeOf(error);
   }
-  if (started.kind === "lock-held") {
+  if (handle.kind === "lock-held") {
     print("already running — the lock is held (exactly one process per project)");
     return EXIT_LOCK_HELD;
   }
-  if (started.kind === "unknown-project") {
+  if (handle.kind === "unknown-project") {
     print(UNKNOWN_PROJECT);
     return EXIT_UNKNOWN_PROJECT;
   }
-  const pauseReason = a.context.project.pauseReason();
-  print(pauseReason === undefined ? "started" : `started paused — ${pauseReason}`);
-
-  // FR-053: a failed append in any scheduled or signalled work ends the
-  // process instead of letting it act without a record.
-  let crash!: (error: unknown) => void;
-  const crashed = new Promise<never>((_, reject) => {
-    crash = reject;
-  });
-  // Skipped ticks on a paused project run at the schema default (contracts/policy.md).
-  const interval = a.context.policy?.tick ?? DEFAULT_TICK;
-  const stopTicks = a.scheduler.start(interval, () => a.tick("schedule").catch(crash));
-  const stopHeartbeat = a.scheduler.start(HEARTBEAT_INTERVAL, () => heartbeat(a).catch(crash));
-  a.control.onTickNow(() => void a.tick("manual").catch(crash));
-  a.control.onResume(() => void a.resume().catch(crash));
+  print(handle.pauseReason === undefined ? "started" : `started paused — ${handle.pauseReason}`);
   try {
-    await Promise.race([shutdown, crashed]);
+    await handle.finished;
     return EXIT_OK;
   } catch (error) {
     print(String(error));
     return exitCodeOf(error);
-  } finally {
-    stopTicks();
-    stopHeartbeat();
   }
 }
 
-/** In every state, also mid-session — the append queue serializes it (FR-028). */
-async function heartbeat(a: Assembly): Promise<void> {
-  const beat: Event = { name: "HeartbeatRecorded", at: a.clock.now() };
-  await a.log.append(beat);
-  a.context.project.apply(beat);
-}
-
-/**
- * `factory tick <project>`: nudge the running process (SIGUSR1), or run a
- * one-shot process generation — the full start sequence, then exactly one
- * tick (contracts/cli.md).
- */
 export async function tickFlow(a: Assembly, print: Print): Promise<number> {
+  let outcome: TickRequestOutcome;
   try {
-    if (a.probe()) return await nudge(a, "SIGUSR1", print);
-    const started = await a.start();
-    if (started.kind === "unknown-project") {
-      print(UNKNOWN_PROJECT);
-      return EXIT_UNKNOWN_PROJECT;
-    }
-    // Someone started the project between the probe and the lock: nudge it.
-    if (started.kind === "lock-held") return await nudge(a, "SIGUSR1", print);
-    await a.tick("manual");
-    print("tick ran — outcome in the event log (factory status)");
-    return EXIT_OK;
+    outcome = await a.tick();
   } catch (error) {
     print(String(error));
     return exitCodeOf(error);
   }
+  switch (outcome.kind) {
+    case "ticked":
+      print("tick ran — outcome in the event log (factory status)");
+      return EXIT_OK;
+    case "nudged":
+      print(
+        `tick requested — SIGUSR1 sent to ${outcome.pid}; outcome in the event log (factory status)`,
+      );
+      return EXIT_OK;
+    case "no-pid":
+      print(NO_PID);
+      return EXIT_ERROR;
+    case "unknown-project":
+      print(UNKNOWN_PROJECT);
+      return EXIT_UNKNOWN_PROJECT;
+  }
 }
 
-/**
- * `factory resume <project>`: SIGHUP to the running process, then poll the
- * status query briefly for the result; or a one-shot generation that resumes
- * itself (contracts/cli.md).
- */
 export async function resumeFlow(a: Assembly, print: Print): Promise<number> {
+  let outcome: ResumeRequestOutcome;
   try {
-    if (a.probe()) return await resumeRunning(a, print);
-    const started = await a.start();
-    if (started.kind === "unknown-project") {
-      print(UNKNOWN_PROJECT);
-      return EXIT_UNKNOWN_PROJECT;
-    }
-    if (started.kind === "lock-held") return await resumeRunning(a, print);
-    const result = await a.resume();
-    print(resumeNotice(result));
-    return EXIT_OK;
+    outcome = await a.resume();
   } catch (error) {
     print(String(error));
     return exitCodeOf(error);
   }
-}
-
-async function resumeRunning(a: Assembly, print: Print): Promise<number> {
-  const before = await a.status();
-  if (before.kind === "unknown-project") {
-    print(UNKNOWN_PROJECT);
-    return EXIT_UNKNOWN_PROJECT;
-  }
-  const pid = await readPid(a.pidfile);
-  if (pid === undefined) {
-    print("running, but the pidfile holds no PID yet — try again");
-    return EXIT_ERROR;
-  }
-  a.kill(pid, "SIGHUP");
-  if (before.state !== "paused") {
-    // The process appends ResumeIgnored; nothing will change (FR-051).
-    print("not paused");
-    return EXIT_OK;
-  }
-  const deadline = Date.now() + RESUME_POLL_WINDOW_MS;
-  while (Date.now() < deadline) {
-    await sleep(RESUME_POLL_EVERY_MS);
-    const now = await a.status();
-    if (now.kind !== "report") continue;
-    if (now.state !== "paused") {
+  switch (outcome.kind) {
+    case "resumed":
       print("resumed");
       return EXIT_OK;
-    }
-    if (now.pauseReason !== before.pauseReason) {
-      print(`still paused: ${now.pauseReason}`);
-      return EXIT_OK;
-    }
-  }
-  print("resume requested — SIGHUP sent; result not yet in the log (factory status)");
-  return EXIT_OK;
-}
-
-function resumeNotice(result: ResumeResult): string {
-  switch (result.kind) {
-    case "resumed":
-      return "resumed";
     case "failed":
-      return `still paused: ${result.reason}`;
+      print(`still paused: ${outcome.reason}`);
+      return EXIT_OK;
     case "ignored":
-      return "not paused";
+      print("not paused");
+      return EXIT_OK;
+    case "requested":
+      print("resume requested — SIGHUP sent; result not yet in the log (factory status)");
+      return EXIT_OK;
+    case "no-pid":
+      print(NO_PID);
+      return EXIT_ERROR;
+    case "unknown-project":
+      print(UNKNOWN_PROJECT);
+      return EXIT_UNKNOWN_PROJECT;
   }
 }
 
-/** `factory status <project>`: read-only — replay + lock probe, never the JSONL itself. */
+/** `factory status <project>`: the report, formatted per contracts/cli.md. */
 export async function statusFlow(a: Assembly, project: string, print: Print): Promise<number> {
   const result = await a.status();
   if (result.kind === "unknown-project") {
@@ -256,48 +162,8 @@ export async function statusFlow(a: Assembly, project: string, print: Print): Pr
   return EXIT_OK;
 }
 
-async function nudge(a: Assembly, signal: "SIGHUP" | "SIGUSR1", print: Print): Promise<number> {
-  const pid = await readPid(a.pidfile);
-  if (pid === undefined) {
-    print("running, but the pidfile holds no PID yet — try again");
-    return EXIT_ERROR;
-  }
-  a.kill(pid, signal);
-  print(`tick requested — ${signal} sent to ${pid}; outcome in the event log (factory status)`);
-  return EXIT_OK;
-}
-
-/** The PID write happens right after lock acquisition — retry the brief gap. */
-async function readPid(pidfile: string): Promise<number | undefined> {
-  const deadline = Date.now() + PID_READ_WINDOW_MS;
-  for (;;) {
-    try {
-      const pid = Number.parseInt(await readFile(pidfile, "utf8"), 10);
-      if (Number.isInteger(pid) && pid > 0) return pid;
-    } catch {
-      // not written yet
-    }
-    if (Date.now() >= deadline) return undefined;
-    await sleep(PID_READ_EVERY_MS);
-  }
-}
-
 function exitCodeOf(error: unknown): number {
   return error instanceof EventLogUnwritable ? EXIT_LOG_UNWRITABLE : EXIT_ERROR;
-}
-
-function sleep(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-/** `--config-dir`/`--state-dir`, their env vars, then the XDG defaults (contracts/cli.md). */
-export function resolveRoots(options: { configDir?: string; stateDir?: string }): Roots {
-  return {
-    configDir:
-      options.configDir ?? process.env.FACTORY_CONFIG_DIR ?? join(homedir(), ".config/factory"),
-    stateDir:
-      options.stateDir ?? process.env.FACTORY_STATE_DIR ?? join(homedir(), ".local/state/factory"),
-  };
 }
 
 type ProjectAction = (assembly: Assembly, project: string) => Promise<number>;
@@ -317,7 +183,7 @@ function projectCommand(description: string, compose: Compose, action: ProjectAc
         console.error(`not a project ID: ${JSON.stringify(project)} — expected owner/repo`);
         process.exit(2);
       }
-      const assembly = compose(project, resolveRoots(options));
+      const assembly = compose(project, options);
       process.exit(await action(assembly, project));
     });
 }
@@ -329,7 +195,7 @@ export function automationsCommands(root: Command, compose: Compose): Command {
     .command(
       "start",
       projectCommand("Run the project process in the foreground.", compose, (assembly) =>
-        startFlow(assembly, console.log, waitForSigterm()),
+        startFlow(assembly, console.log),
       ),
     )
     .command(
@@ -353,11 +219,4 @@ export function automationsCommands(root: Command, compose: Compose): Command {
       ),
     );
   return root;
-}
-
-function waitForSigterm(): Promise<void> {
-  return new Promise((resolve) => {
-    process.once("SIGTERM", () => resolve());
-    process.once("SIGINT", () => resolve());
-  });
 }

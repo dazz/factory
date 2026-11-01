@@ -12,4 +12,8 @@ export class TimerScheduler implements Scheduler {
     const timer = setInterval(() => void fire(), interval.milliseconds);
     return () => clearInterval(timer);
   }
+
+  sleep(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
 }

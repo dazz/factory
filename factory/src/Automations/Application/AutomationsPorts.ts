@@ -3,7 +3,7 @@ import type { Automations } from "~/Automations/Domain/Automations.ts";
 import type { ConsumedInput, Finding } from "~/Automations/Domain/ConsumedInput.ts";
 import type { Event, SessionOutcome } from "~/Automations/Domain/Event.ts";
 import type { AutomationName, CommitId } from "~/Automations/Domain/Ids.ts";
-import { IsoDuration } from "~/Automations/Domain/IsoDuration.ts";
+import type { IsoDuration } from "~/Automations/Domain/IsoDuration.ts";
 import type { Limits, Policy } from "~/Automations/Domain/Policy.ts";
 
 /**
@@ -17,21 +17,9 @@ export type Stop = () => void;
 /** Fires the tick on its interval; tests fire directly instead (FR-020). */
 export interface Scheduler {
   start(interval: IsoDuration, fire: () => Promise<void>): Stop;
+  /** One bounded wait — polling loops go through the port, never `setTimeout`. */
+  sleep(milliseconds: number): Promise<void>;
 }
-
-/**
- * The liveness heartbeat cadence (FR-028), tied to the Uptime check: its
- * period is 5 minutes plus 10 minutes grace — 15-minute ticks or long
- * sessions would trigger it, a 5-minute heartbeat never does.
- */
-export const HEARTBEAT_INTERVAL = IsoDuration.parse("PT5M", "heartbeat interval");
-
-/**
- * An append or fsync failed (FR-053): the factory never acts without a
- * record — the process ends with exit 74, the supervisor restarts it and
- * the replay catches up.
- */
-export class EventLogUnwritable extends Error {}
 
 /** Runs one session. The `FakeHarness` is a shipped adapter, not a test hack. */
 export interface Harness {
@@ -71,10 +59,17 @@ export interface AutomationsSource {
   read(): Promise<AutomationsReading>;
 }
 
-/** Resume and tick-now nudges; `SignalControlChannel` maps SIGHUP / SIGUSR1. */
+/** SIGHUP = resume, SIGUSR1 = tick now (STACK: the control channel as signals). */
+export type ControlSignal = "SIGHUP" | "SIGUSR1";
+
+/** Both halves of the nudges; `SignalControlChannel` maps them onto Unix signals. */
 export interface ControlChannel {
   onResume(fn: () => void): void;
   onTickNow(fn: () => void): void;
+  /** SIGTERM / SIGINT — the clean end of the foreground process (contracts/cli.md). */
+  onShutdown(fn: () => void): void;
+  /** The sending half: nudge the process that holds the lock. */
+  signal(pid: number, signal: ControlSignal): void;
 }
 
 /** One process per project (FR-027). `acquire` retries briefly (named constant). */
@@ -82,4 +77,6 @@ export interface InstanceLock {
   acquire(): Promise<boolean>;
   /** Whether some process holds it, without taking it — the `factory status` probe (FR-025). */
   isHeld(): boolean;
+  /** The holder's PID from the pidfile — the signal address for the nudges. */
+  holderPid(): Promise<number | undefined>;
 }

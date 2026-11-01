@@ -1,5 +1,6 @@
 import { dlopen, FFIType } from "bun:ffi";
 import { closeSync, ftruncateSync, mkdirSync, openSync, writeSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { InstanceLock } from "~/Automations/Application/AutomationsPorts.ts";
 
@@ -21,6 +22,10 @@ const { symbols } = dlopen(LIBC, {
 const ACQUIRE_RETRY_WINDOW_MS = 5_000;
 const RETRY_EVERY_MS = 100;
 
+/** The pidfile may be empty for an instant (between lock acquisition and the PID write). */
+const PID_READ_WINDOW_MS = 1_000;
+const PID_READ_EVERY_MS = 50;
+
 /**
  * flock(2) on the pidfile (`<state-root>/projects/<owner>/<repo>/factory.pid`).
  * Spike pattern: open append — never truncate before the lock; PID
@@ -33,6 +38,7 @@ export class FlockInstanceLock implements InstanceLock {
   constructor(
     private readonly path: string,
     private readonly retryWindowMs: number = ACQUIRE_RETRY_WINDOW_MS,
+    private readonly pidReadWindowMs: number = PID_READ_WINDOW_MS,
   ) {}
 
   async acquire(): Promise<boolean> {
@@ -69,6 +75,21 @@ export class FlockInstanceLock implements InstanceLock {
       return false;
     } finally {
       closeSync(fd);
+    }
+  }
+
+  /** The PID write happens right after lock acquisition — retry the brief gap. */
+  async holderPid(): Promise<number | undefined> {
+    const deadline = Date.now() + this.pidReadWindowMs;
+    for (;;) {
+      try {
+        const pid = Number.parseInt(await readFile(this.path, "utf8"), 10);
+        if (Number.isInteger(pid) && pid > 0) return pid;
+      } catch {
+        // not written yet
+      }
+      if (Date.now() >= deadline) return undefined;
+      await sleep(PID_READ_EVERY_MS);
     }
   }
 

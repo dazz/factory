@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { cli } from "~/main.ts";
+import { cli, resolveRoots } from "~/main.ts";
 
 test("the wiring starts: --help names the factory and its purpose", () => {
   const help = cli().getHelp();
@@ -26,4 +26,21 @@ test("every command takes the project ID and the two root options", () => {
 
 test("--version is set", () => {
   expect(cli().getVersion()).toMatch(/^\d+\.\d+\.\d+$/);
+});
+
+test("the roots: flag beats env beats the XDG default", () => {
+  process.env.FACTORY_CONFIG_DIR = "/from/env/config";
+  process.env.FACTORY_STATE_DIR = "/from/env/state";
+  try {
+    expect(resolveRoots({ configDir: "/from/flag" })).toEqual({
+      configDir: "/from/flag",
+      stateDir: "/from/env/state",
+    });
+  } finally {
+    delete process.env.FACTORY_CONFIG_DIR;
+    delete process.env.FACTORY_STATE_DIR;
+  }
+  const defaults = resolveRoots({});
+  expect(defaults.configDir.endsWith(".config/factory")).toBe(true);
+  expect(defaults.stateDir.endsWith(".local/state/factory")).toBe(true);
 });
