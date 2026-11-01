@@ -9,7 +9,7 @@ the owner's side of the contract — it **allows**; the repository's
 
 The schema is **strict**: an unknown key makes the whole file invalid, and the
 project starts (or keeps running) **paused**, with the failing path in
-`factory status`. A typo must not silently remove a limit.
+`ncxten status`. A typo must not silently remove a limit.
 
 ```yaml {filename="<config-dir>/dazz/foo.yaml"}
 repo:
@@ -53,8 +53,8 @@ takes effect in later slices.
 
 | root | default | flag | environment |
 |---|---|---|---|
-| config | `~/.config/factory` | `--config-dir` | `FACTORY_CONFIG_DIR` |
-| state | `~/.local/state/factory` | `--state-dir` | `FACTORY_STATE_DIR` |
+| config | `~/.config/ncxten` | `--config-dir` | `NCXTEN_CONFIG_DIR` |
+| state | `~/.local/state/ncxten` | `--state-dir` | `NCXTEN_STATE_DIR` |
 
 Flag beats environment beats the XDG default. No other path is configurable:
 everything below the roots derives from the project ID, so a typo can never
@@ -63,6 +63,6 @@ split a project across two locks or two logs.
 ## Invalid policy ≠ dead project
 
 An unreadable or invalid policy **pauses** the project instead of stopping it:
-the process keeps running, skips its ticks, and `factory status` names the
-reason. Fix the file, then `factory resume <project>` — the policy is re-read
+the process keeps running, skips its ticks, and `ncxten status` names the
+reason. Fix the file, then `ncxten resume <project>` — the policy is re-read
 and re-validated only then.

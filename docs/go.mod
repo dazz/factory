@@ -1,4 +1,4 @@
-module github.com/dazz/factory/docs
+module github.com/dazz/ncxten/docs
 
 go 1.23
 

@@ -3,7 +3,7 @@ title: CLI
 weight: 4
 ---
 
-`factory <command> <project>` — the project ID is always `owner/repo`, the same
+`ncxten <command> <project>` — the project ID is always `owner/repo`, the same
 string you see in every event line. All commands take `--config-dir` and
 `--state-dir` (see [Configuration](../configuration)).
 
@@ -13,7 +13,7 @@ the same PID namespace** as the factory — in a container setup that means
 `docker exec`, not the host shell.
 {{< /callout >}}
 
-## `factory start <project>`
+## `ncxten start <project>`
 
 Runs the project process in the foreground (what s6 or systemd want). Start
 sequence, every time: acquire the instance lock → replay the event log → abort
@@ -24,7 +24,7 @@ the lock is held refuses with exit 75.
 An invalid policy does not stop the start — the project runs **paused** until
 you fix the file and resume.
 
-## `factory tick <project>`
+## `ncxten tick <project>`
 
 Tick now instead of waiting for the schedule.
 
@@ -33,13 +33,13 @@ Tick now instead of waiting for the schedule.
 - Project **stopped** → a one-shot process generation: full start sequence,
   one tick, exit.
 
-## `factory resume <project>`
+## `ncxten resume <project>`
 
 Lifts a pause after you fixed the cause. The policy is re-read and
 re-validated; the result is printed (`resumed`, `still paused: <reason>`, or
 `not paused`). A pause **survives restarts** — only an explicit resume lifts it.
 
-## `factory status <project>`
+## `ncxten status <project>`
 
 Read-only — replays the log, probes the lock, never signals:
 
@@ -71,5 +71,5 @@ aborted at the next start.
 | signal | effect |
 |---|---|
 | `SIGTERM` / `SIGINT` | clean shutdown |
-| `SIGUSR1` | tick now (what `factory tick` sends) |
-| `SIGHUP` | resume (what `factory resume` sends) |
+| `SIGUSR1` | tick now (what `ncxten tick` sends) |
+| `SIGHUP` | resume (what `ncxten resume` sends) |

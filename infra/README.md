@@ -13,11 +13,11 @@ that repository's Better Stack Uptime heartbeat. Nothing else on the box is moun
 Run from `infra/compose/`:
 
 ```sh
-mkdir -p ~/.local/state/factory/events ~/.local/state/factory/vector   # once, before the first `up`
+mkdir -p ~/.local/state/ncxten/events ~/.local/state/ncxten/vector   # once, before the first `up`
 cp .env .env.local                           # once, then fill in the real values (see below)
 docker compose up -d                         # start; restarts by itself unless stopped
 docker compose logs -f vector                # watch
-docker compose down                          # stop; ~/.local/state/factory/vector keeps checkpoints and the disk buffer
+docker compose down                          # stop; ~/.local/state/ncxten/vector keeps checkpoints and the disk buffer
 ```
 
 **Start order.** Both directories must exist before the first `docker compose up` (the events directory can
@@ -25,9 +25,9 @@ also come from starting the runner once). Otherwise Docker creates them, and wit
 root and the runner cannot write its event file. (This box runs rootless Docker, where they would belong to you,
 but keep the rule: the README is for every box.)
 
-**File ownership of the `factory` service.** The factory image sets no `USER`: on rootless Docker, root in the
+**File ownership of the `ncxten` service.** The factory image sets no `USER`: on rootless Docker, root in the
 container is the host user, so everything the factory writes to its volumes belongs to you. On a **rootful**
-daemon the same files would belong to root — there, add `user: "<uid>:<gid>"` to the `factory` service in
+daemon the same files would belong to root — there, add `user: "<uid>:<gid>"` to the `ncxten` service in
 `compose/docker-compose.yml` (the image works either way).
 
 ### `.env` / `.env.local`
@@ -70,7 +70,7 @@ The error alert's push depends on the last row. If push is not included, the ale
    once. This also catches `outcome = "undecodable"` (a line Vector could not decode; it has no `repository`)
    and every future repository. `warn` does not push.
 2. **Uptime heartbeat, once per repository.** Better Stack → Uptime → Heartbeats → Create: name
-   `factory dazz/dazzhub`, period 5 minutes, grace 10 minutes, notify: push. Copy its URL into `.env.local` as
+   `ncxten dazz/dazzhub`, period 5 minutes, grace 10 minutes, notify: push. Copy its URL into `.env.local` as
    `BETTERSTACK_HEARTBEAT_URL_DAZZHUB`. Any event resets it, and the runner writes at least one every
    5 minutes (dazz/dazzhub#615), so a long walker session never fires it. It goes down when the runner, Vector
    or the heartbeat URL is dead; Vector's death looks like the runner's, on purpose.
@@ -84,7 +84,7 @@ cannot tell a wanted stop from a crash, and "the factory is off" is worth a push
 Append an error event to the event file and watch your phone (push within 2 minutes):
 
 ```sh
-echo '{"schema":1,"time":"'"$(date +%Y-%m-%dT%H:%M:%S.%3N%:z)"'","kind":"automation","repository":"dazz/dazzhub","forge":"github.com","automation":"manual-test","outcome":"error","detail":"one-line test","level":"error"}' >> ~/.local/state/factory/events/dazz/dazzhub.jsonl
+echo '{"schema":1,"time":"'"$(date +%Y-%m-%dT%H:%M:%S.%3N%:z)"'","kind":"automation","repository":"dazz/dazzhub","forge":"github.com","automation":"manual-test","outcome":"error","detail":"one-line test","level":"error"}' >> ~/.local/state/ncxten/events/dazz/dazzhub.jsonl
 ```
 
 A non-JSON line (`echo 'not json' >> …/dazzhub.jsonl`) arrives as `outcome: undecodable`, `level: error`, the raw
@@ -98,7 +98,7 @@ saved view: `dt repository automation issue outcome detail`.
 
 ### A second repository
 
-The other runner's `project.paths.events` must live under `~/.local/state/factory/events/` (the only mounted
+The other runner's `project.paths.events` must live under `~/.local/state/ncxten/events/` (the only mounted
 directory). Then, in `vector/vector.yaml`, one source block and one entry in `inputs`:
 
 ```yaml

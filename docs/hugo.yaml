@@ -1,7 +1,7 @@
 # User documentation — Hugo + Hextra (STACK: Documentation).
 # Local preview: docker run --rm -p 1313:1313 -v "$PWD":/src hugomods/hugo:go hugo server --bind 0.0.0.0
-baseURL: https://dazz.github.io/factory/
-title: factory
+baseURL: https://dazz.github.io/ncxten/
+title: ncxten
 locale: en-us
 enableGitInfo: true
 
@@ -27,7 +27,7 @@ menu:
         type: search
     - name: GitHub
       weight: 3
-      url: https://github.com/dazz/factory
+      url: https://github.com/dazz/ncxten
       params:
         icon: github
 
@@ -43,4 +43,4 @@ params:
     displayPoweredBy: false
   editURL:
     enable: true
-    base: https://github.com/dazz/factory/edit/main/docs/content
+    base: https://github.com/dazz/ncxten/edit/main/docs/content

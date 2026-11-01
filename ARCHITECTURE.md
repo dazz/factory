@@ -1,7 +1,7 @@
 # ARCHITECTURE
 
 How the factory code is cut, and how the cut is enforced. The decisions behind it live in
-`dazz/factory-spec` ▸ `STACK.md` (the constitution); this file is the operational companion:
+`dazz/ncxten-spec` ▸ `STACK.md` (the constitution); this file is the operational companion:
 what each layer may hold, what it may not, and which test catches a violation.
 
 ## Layers
@@ -97,7 +97,7 @@ least careful copy.
 **Where it goes.** A use-case `RecordHeartbeat` in Application; `HEARTBEAT_INTERVAL` moves
 into its file. The start flow (scheduler start, heartbeat cadence, signal wiring, the crash
 promise) becomes an Application service, `RunProject`, that the UI calls once and awaits.
-The nudge-or-one-shot logic of `factory tick` and `factory resume` (lock probe, holder PID,
+The nudge-or-one-shot logic of `ncxten tick` and `ncxten resume` (lock probe, holder PID,
 signal, result polling) becomes `RequestTick` and `RequestResume`. One carve-out:
 `EventLogUnwritable` leaves `AutomationsPorts.ts` for its own Application file — the UI names
 that error to map it to exit 74, and the UI imports no ports.

@@ -1,4 +1,4 @@
-name: factory-infra
+name: ncxten-infra
 
 services:
   vector:
@@ -12,14 +12,14 @@ services:
       VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"  # since 0.57 Vector leaves ${VAR} in vector.yaml literal without it
     volumes:
       - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
-      - ${HOME}/.local/state/factory/events:/events:ro  # the directory of project.paths.events, never paths.state; create it first (README)
-      - ${HOME}/.local/state/factory/vector:/var/lib/vector  # checkpoints + disk buffer; a host path, not a named volume
+      - ${HOME}/.local/state/ncxten/events:/events:ro  # the directory of project.paths.events, never paths.state; create it first (README)
+      - ${HOME}/.local/state/ncxten/vector:/var/lib/vector  # checkpoints + disk buffer; a host path, not a named volume
     mem_limit: 128m
 
-  factory:
+  ncxten:
     build:
       context: ../..                                    # the repo root (.dockerignore applies)
-      dockerfile: docker/factory/Dockerfile
+      dockerfile: docker/ncxten/Dockerfile
     restart: unless-stopped
     # No `user:` here — this box runs rootless Docker, where root in the container is the
     # host user, so files on the volumes belong to you. A rootful daemon needs
@@ -29,5 +29,5 @@ services:
     volumes:
       # Mounted at the SAME paths as on the host (STACK Deployment: the daemon resolves
       # bind mounts on the host; the CLI runs via docker exec in the same PID namespace).
-      - ${HOME}/.config/factory:${HOME}/.config/factory             # policies, read-write
-      - ${HOME}/.local/state/factory:${HOME}/.local/state/factory   # state root: events/ + projects/
+      - ${HOME}/.config/ncxten:${HOME}/.config/ncxten             # policies, read-write
+      - ${HOME}/.local/state/ncxten:${HOME}/.local/state/ncxten   # state root: events/ + projects/

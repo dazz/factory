@@ -1,17 +1,17 @@
-# factory
+# ncxten
 
-The software factory that builds [dazz/dazzhub](https://github.com/dazz/dazzhub) and, later, other repositories.
+ncxten is a software factory: it builds [dazz/dazzhub](https://github.com/dazz/dazzhub) and, later, other repositories.
 
-Specified in `dazz/factory-spec` (slice `001-tick` onward). Of dazzhub's `factory/` only the generic
+Specified in `dazz/ncxten-spec` (slice `001-tick` onward). Of dazzhub's `factory/` only the generic
 runner moves here; everything else (actors, board, worktree, gate, skills) is application knowledge
 and stays there (see dazz/dazzhub#613).
 
 ## Layout — four spaces
 
 ```
-docker/factory/   Dockerfile, s6 service files, start script (the container the factory runs in)
+docker/ncxten/    Dockerfile, s6 service files, start script (the container the factory runs in)
 docs/             user documentation — Hugo + Hextra, deployed to GitHub Pages by the docs workflow
-factory/          the Bun app: package.json, bun.lock, .npmrc, tsconfig.json, biome.json, Makefile, src/, tests/
+ncxten/           the Bun app: package.json, bun.lock, .npmrc, tsconfig.json, biome.json, Makefile, src/, tests/
 infra/            the box-wide services: compose and Vector → Better Stack (see infra/README.md)
 ```
 

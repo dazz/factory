@@ -8,15 +8,15 @@ is a single binary. Everything lives under two roots on your machine, mounted
 into the container at the same paths:
 
 ```
-~/.config/factory/<owner>/<repo>.yaml      # policies — one file per project
-~/.local/state/factory/                    # state root
+~/.config/ncxten/<owner>/<repo>.yaml      # policies — one file per project
+~/.local/state/ncxten/                    # state root
 ├── events/<owner>/<repo>.jsonl            # the event log (schema v1)
-└── projects/<owner>/<repo>/factory.pid    # pidfile — the instance lock lives on it
+└── projects/<owner>/<repo>/ncxten.pid    # pidfile — the instance lock lives on it
 ```
 
 ## 1. Write a policy
 
-```yaml {filename="~/.config/factory/dazz/foo.yaml"}
+```yaml {filename="~/.config/ncxten/dazz/foo.yaml"}
 repo:
   repository: dazz/foo
   paths:
@@ -49,21 +49,21 @@ every tick. See [Automations](../automations).
 ```sh
 cd infra/compose
 docker compose up -d
-docker compose logs -f factory
+docker compose logs -f ncxten
 ```
 
-The service starts `factory start <project>` under s6. Check on it from the
+The service starts `ncxten start <project>` under s6. Check on it from the
 same PID namespace (signals must reach the right process):
 
 ```sh
-docker exec factory-infra-factory-1 factory status dazz/foo
-docker exec factory-infra-factory-1 factory tick dazz/foo     # tick now, don't wait
+docker exec ncxten-infra-ncxten-1 ncxten status dazz/foo
+docker exec ncxten-infra-ncxten-1 ncxten tick dazz/foo     # tick now, don't wait
 ```
 
 ## 4. Watch the event log
 
 ```sh
-tail -f ~/.local/state/factory/events/dazz/foo.jsonl
+tail -f ~/.local/state/ncxten/events/dazz/foo.jsonl
 ```
 
 Every line is one event: `{"schema":1,"time":…,"kind":"tick","outcome":"idle",…}`.

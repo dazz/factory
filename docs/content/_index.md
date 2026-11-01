@@ -1,10 +1,10 @@
 ---
-title: factory
+title: ncxten
 layout: hextra-home
 toc: false
 ---
 
-{{< hextra/hero-badge link="https://github.com/dazz/factory" >}}
+{{< hextra/hero-badge link="https://github.com/dazz/ncxten" >}}
   Open development on GitHub
 {{< /hextra/hero-badge >}}
 

@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: factory
+        working-directory: ncxten
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -21,6 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: build the factory image
-        run: docker build -f docker/factory/Dockerfile -t factory .
+        run: docker build -f docker/ncxten/Dockerfile -t ncxten .
       - name: the binary answers inside the container
-        run: docker run --rm --entrypoint factory factory --help
+        run: docker run --rm --entrypoint ncxten ncxten --help

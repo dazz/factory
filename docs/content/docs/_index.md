@@ -10,10 +10,10 @@ where it was.
 
 Three files are yours:
 
-- the **policy** (`~/.config/factory/<owner>/<repo>.yaml`) — what the factory
+- the **policy** (`~/.config/ncxten/<owner>/<repo>.yaml`) — what the factory
   is allowed to do: how often it ticks, how long a session may run,
 - **`automations.yml`** in your repository — what the repo proposes to automate,
-- the **event log** (`~/.local/state/factory/events/<owner>/<repo>.jsonl`) —
+- the **event log** (`~/.local/state/ncxten/events/<owner>/<repo>.jsonl`) —
   what actually happened, one JSON line per event.
 
 The policy allows, the repo proposes, the log remembers.
