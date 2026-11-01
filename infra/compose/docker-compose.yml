@@ -4,7 +4,10 @@ services:
   vector:
     image: timberio/vector:0.59.0-alpine                # pinned; the CI workflow uses the same tag, move both together
     restart: unless-stopped
-    env_file: .env                                      # BETTERSTACK_* (see .env.example), never in the repo
+    env_file:                                           # BETTERSTACK_* — placeholders in .env (committed), real values in .env.local (git-ignored)
+      - .env
+      - path: .env.local
+        required: false                                 # a fresh clone has none; Vector then runs with placeholders
     environment:
       VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"  # since 0.57 Vector leaves ${VAR} in vector.yaml literal without it
     volumes:
