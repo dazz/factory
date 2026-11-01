@@ -15,8 +15,12 @@ ARG S6_OVERLAY_VERSION=3.2.0.2
 RUN apt-get update \
   && apt-get install -y --no-install-recommends git ca-certificates xz-utils \
   && rm -rf /var/lib/apt/lists/*
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp/
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
+# Checksums pin the release artifacts (verified against the published .sha256 files);
+# bumping S6_OVERLAY_VERSION means updating both.
+ADD --checksum=sha256:6dbcde158a3e78b9bb141d7bcb5ccb421e563523babbe2c64470e76f4fd02dae \
+  https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp/
+ADD --checksum=sha256:59289456ab1761e277bd456a95e737c06b03ede99158beb24f12b165a904f478 \
+  https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
 RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
   && rm /tmp/s6-overlay-*.tar.xz
