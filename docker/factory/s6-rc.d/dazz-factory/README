@@ -1,0 +1,3 @@
+# One s6 service per project; the name is the flattened project ID (s6 allows no slash).
+# Enabled via ../user/contents.d/dazz-factory (T036). The policy and the checkout live on
+# the volumes: ~/.config/factory/dazz/factory.yaml and its repo.paths.checkout.

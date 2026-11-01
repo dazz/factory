@@ -14,7 +14,7 @@ Run from `infra/compose/`:
 
 ```sh
 mkdir -p ~/.local/state/factory/events ~/.local/state/factory/vector   # once, before the first `up`
-cp .env.example .env                         # once, then fill it in (see below)
+cp .env .env.local                           # once, then fill in the real values (see below)
 docker compose up -d                         # start; restarts by itself unless stopped
 docker compose logs -f vector                # watch
 docker compose down                          # stop; ~/.local/state/factory/vector keeps checkpoints and the disk buffer
@@ -25,9 +25,16 @@ also come from starting the runner once). Otherwise Docker creates them, and wit
 root and the runner cannot write its event file. (This box runs rootless Docker, where they would belong to you,
 but keep the rule: the README is for every box.)
 
-### `.env`
+**File ownership of the `factory` service.** The factory image sets no `USER`: on rootless Docker, root in the
+container is the host user, so everything the factory writes to its volumes belongs to you. On a **rootful**
+daemon the same files would belong to root — there, add `user: "<uid>:<gid>"` to the `factory` service in
+`compose/docker-compose.yml` (the image works either way).
 
-Better Stack → Telemetry → Sources → Connect source (platform: HTTP / Vector) gives the first two values, the
+### `.env` / `.env.local`
+
+`.env` is committed and holds placeholders — it documents the variables. The real values go into
+`.env.local` (git-ignored), which compose loads after `.env` and which overrides it. Better Stack →
+Telemetry → Sources → Connect source (platform: HTTP / Vector) gives the first two values, the
 Uptime heartbeat (see [Alerts](#alerts-create-by-hand)) the third:
 
 | Variable | Value |
@@ -36,7 +43,7 @@ Uptime heartbeat (see [Alerts](#alerts-create-by-hand)) the third:
 | `BETTERSTACK_INGEST_HOST` | the ingesting host, without `https://` |
 | `BETTERSTACK_HEARTBEAT_URL_DAZZHUB` | the heartbeat URL, `https://uptime.betterstack.com/api/v1/heartbeat/<token>` |
 
-`.env` is git-ignored. Never commit it; the heartbeat URL is a secret too.
+`.env.local` is git-ignored. Never commit it; the heartbeat URL is a secret too.
 
 `vector.yaml` reads all three with `${VAR}`. Since Vector 0.57 that interpolation is off by default, so
 `compose/docker-compose.yml` turns it on with `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true`. Without it
@@ -63,7 +70,7 @@ The error alert's push depends on the last row. If push is not included, the ale
    once. This also catches `outcome = "undecodable"` (a line Vector could not decode; it has no `repository`)
    and every future repository. `warn` does not push.
 2. **Uptime heartbeat, once per repository.** Better Stack → Uptime → Heartbeats → Create: name
-   `factory dazz/dazzhub`, period 5 minutes, grace 10 minutes, notify: push. Copy its URL into `.env` as
+   `factory dazz/dazzhub`, period 5 minutes, grace 10 minutes, notify: push. Copy its URL into `.env.local` as
    `BETTERSTACK_HEARTBEAT_URL_DAZZHUB`. Any event resets it, and the runner writes at least one every
    5 minutes (dazz/dazzhub#615), so a long walker session never fires it. It goes down when the runner, Vector
    or the heartbeat URL is dead; Vector's death looks like the runner's, on purpose.
@@ -105,7 +112,7 @@ transforms:
     inputs: [dazzhub, other]
 ```
 
-Its own Uptime heartbeat (alert 2) and env variable, `BETTERSTACK_HEARTBEAT_URL_OTHER`, in `.env`, `.env.example`
+Its own Uptime heartbeat (alert 2) and env variable, `BETTERSTACK_HEARTBEAT_URL_OTHER`, in `.env` (placeholder), `.env.local`
 and the CI placeholders. Then route on `.repository` so each heartbeat sees only its repository's events, and move
 `uptime_dazzhub` to its route:
 

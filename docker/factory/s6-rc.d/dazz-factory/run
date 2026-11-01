@@ -1,0 +1,5 @@
+#!/command/with-contenv sh
+# with-contenv: s6-overlay v3 starts services with a minimal environment — the
+# factory needs the container's HOME for its XDG default roots.
+# exec, so s6-svc -h / -1 reach the factory process itself, not a shell around it (STACK).
+exec factory start dazz/factory

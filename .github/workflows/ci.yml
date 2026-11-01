@@ -1,0 +1,26 @@
+name: ci
+
+on: push
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: factory
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: make ci
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build the factory image
+        run: docker build -f docker/factory/Dockerfile -t factory .
+      - name: the binary answers inside the container
+        run: docker run --rm --entrypoint factory factory --help

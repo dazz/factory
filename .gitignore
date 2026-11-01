@@ -1,1 +1,8 @@
-.env
+.env.local
+node_modules/
+.tmp/
+
+# hugo build artifacts (docs/)
+docs/public/
+docs/resources/
+docs/.hugo_build.lock

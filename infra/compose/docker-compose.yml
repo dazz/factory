@@ -4,7 +4,10 @@ services:
   vector:
     image: timberio/vector:0.59.0-alpine                # pinned; the CI workflow uses the same tag, move both together
     restart: unless-stopped
-    env_file: .env                                      # BETTERSTACK_* (see .env.example), never in the repo
+    env_file:                                           # BETTERSTACK_* — placeholders in .env (committed), real values in .env.local (git-ignored)
+      - .env
+      - path: .env.local
+        required: false                                 # a fresh clone has none; Vector then runs with placeholders
     environment:
       VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"  # since 0.57 Vector leaves ${VAR} in vector.yaml literal without it
     volumes:
@@ -12,3 +15,19 @@ services:
       - ${HOME}/.local/state/factory/events:/events:ro  # the directory of project.paths.events, never paths.state; create it first (README)
       - ${HOME}/.local/state/factory/vector:/var/lib/vector  # checkpoints + disk buffer; a host path, not a named volume
     mem_limit: 128m
+
+  factory:
+    build:
+      context: ../..                                    # the repo root (.dockerignore applies)
+      dockerfile: docker/factory/Dockerfile
+    restart: unless-stopped
+    # No `user:` here — this box runs rootless Docker, where root in the container is the
+    # host user, so files on the volumes belong to you. A rootful daemon needs
+    # `user: "<uid>:<gid>"` instead (README).
+    environment:
+      HOME: ${HOME}                                     # so the CLI defaults (~/.config, ~/.local/state) hit the mounts below
+    volumes:
+      # Mounted at the SAME paths as on the host (STACK Deployment: the daemon resolves
+      # bind mounts on the host; the CLI runs via docker exec in the same PID namespace).
+      - ${HOME}/.config/factory:${HOME}/.config/factory             # policies, read-write
+      - ${HOME}/.local/state/factory:${HOME}/.local/state/factory   # state root: events/ + projects/
